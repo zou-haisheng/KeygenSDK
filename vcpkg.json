@@ -1,0 +1,11 @@
+{
+  "name": "keygensdk",
+  "version-string": "1.0.0",
+  "description": "A small C++20 client SDK for Keygen CE license verification.",
+  "license": "MIT",
+  "dependencies": [
+    "curl",
+    "nlohmann-json"
+  ],
+  "builtin-baseline": "e99d87dcf02926bfd629560e11e156329d5720c1"
+}

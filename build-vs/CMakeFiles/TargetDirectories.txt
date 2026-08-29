@@ -1,0 +1,7 @@
+C:/Users/19697/Documents/KeygenSDK/KeygenSDK/build-vs/CMakeFiles/KeygenSDK.dir
+C:/Users/19697/Documents/KeygenSDK/KeygenSDK/build-vs/CMakeFiles/KeygenSDKTests.dir
+C:/Users/19697/Documents/KeygenSDK/KeygenSDK/build-vs/CMakeFiles/KeygenSDKBasicExample.dir
+C:/Users/19697/Documents/KeygenSDK/KeygenSDK/build-vs/CMakeFiles/RUN_TESTS.dir
+C:/Users/19697/Documents/KeygenSDK/KeygenSDK/build-vs/CMakeFiles/INSTALL.dir
+C:/Users/19697/Documents/KeygenSDK/KeygenSDK/build-vs/CMakeFiles/ALL_BUILD.dir
+C:/Users/19697/Documents/KeygenSDK/KeygenSDK/build-vs/CMakeFiles/ZERO_CHECK.dir
