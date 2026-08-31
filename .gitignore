@@ -1,6 +1,8 @@
 /build/
 /out/
 /.vs/
+/build-vs/
+/vcpkg_installed/
 *.user
 *.suo
 *.vcxproj.user
