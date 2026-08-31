@@ -1,3 +1,18 @@
-Start testing: Aug 29 10:25 中国标准时间
+Start testing: Aug 31 15:43 中国标准时间
 ----------------------------------------------------------
-End testing: Aug 29 10:25 中国标准时间
+1/1 Testing: KeygenSDKTests
+1/1 Test: KeygenSDKTests
+Command: "C:/Users/19697/Documents/KeygenSDK/KeygenSDK/build-vs/Debug/KeygenSDKTests.exe"
+Directory: C:/Users/19697/Documents/KeygenSDK/KeygenSDK/build-vs
+"KeygenSDKTests" start time: Aug 31 15:43 中国标准时间
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.11 sec
+----------------------------------------------------------
+Test Passed.
+"KeygenSDKTests" end time: Aug 31 15:43 中国标准时间
+"KeygenSDKTests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Aug 31 15:43 中国标准时间

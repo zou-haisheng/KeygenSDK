@@ -11,7 +11,9 @@ enum class ErrorCode {
     NetworkError,
     InvalidLicense,
     LicenseExpired,
+    LicenseSuspended,
     LicenseRevoked,
+    LicenseOverdue,
     MachineLimitReached,
     ActivationFailed,
     OfflineDataMissing,
@@ -28,6 +30,8 @@ constexpr std::string_view toString(ErrorCode code) noexcept {
     case ErrorCode::NetworkError: return "network_error";
     case ErrorCode::InvalidLicense: return "invalid_license";
     case ErrorCode::LicenseExpired: return "license_expired";
+    case ErrorCode::LicenseSuspended: return "license_suspended";
+    case ErrorCode::LicenseOverdue: return "license_overdue";
     case ErrorCode::LicenseRevoked: return "license_revoked";
     case ErrorCode::MachineLimitReached: return "machine_limit_reached";
     case ErrorCode::ActivationFailed: return "activation_failed";

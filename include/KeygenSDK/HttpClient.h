@@ -7,25 +7,45 @@
 
 namespace KeygenSDK {
 
-struct HttpResponse {
-    long statusCode{0};
-    std::string body;
-};
+    struct HttpResponse {
+        long statusCode{ 0 };
+        std::string body;
+    };
 
-class HttpClient {
-public:
-    explicit HttpClient(long timeoutSeconds = 15);
-    ~HttpClient();
+    class IHttpClient {
+        public:
+            virtual ~IHttpClient() = default;
 
-    HttpClient(const HttpClient&) = delete;
-    HttpClient& operator=(const HttpClient&) = delete;
-    HttpClient(HttpClient&&) = delete;
-    HttpClient& operator=(HttpClient&&) = delete;
+            [[nodiscard]] virtual Result get(
+                std::string_view url,
+                HttpResponse& response) const = 0;
 
-    [[nodiscard]] Result get(std::string_view url, HttpResponse& response) const;
+            [[nodiscard]] virtual Result post(
+                std::string_view url,
+                std::string_view body,
+                HttpResponse& response) const = 0;
+    };
 
-private:
-    long timeoutSeconds_;
-};
+    class HttpClient : public IHttpClient {
+        public:
+            explicit HttpClient(long timeoutSeconds = 15);
+            ~HttpClient();
 
+            HttpClient(const HttpClient&) = delete;
+            HttpClient& operator=(const HttpClient&) = delete;
+            HttpClient(HttpClient&&) = delete;
+            HttpClient& operator=(HttpClient&&) = delete;
+
+            [[nodiscard]] Result get(
+                std::string_view url,
+                HttpResponse& response) const override;
+
+            [[nodiscard]] Result post(
+                std::string_view url,
+                std::string_view body,
+                HttpResponse& response) const override;
+
+        private:
+            long timeoutSeconds_;
+    };
 } // namespace KeygenSDK
