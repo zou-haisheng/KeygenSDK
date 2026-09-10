@@ -2,10 +2,12 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "KeygenSDK/Error.h"
 
 namespace KeygenSDK {
+    using HttpHeaders = std::vector<std::string>;
 
     struct HttpResponse {
         long statusCode{ 0 };
@@ -23,7 +25,13 @@ namespace KeygenSDK {
             [[nodiscard]] virtual Result post(
                 std::string_view url,
                 std::string_view body,
-                HttpResponse& response) const = 0;
+                HttpResponse& response,
+                const HttpHeaders& headers = {}) const = 0;
+
+            [[nodiscard]] virtual Result deleteResource(
+                std::string_view url,
+                HttpResponse& response,
+                const HttpHeaders& headers = {}) const = 0;
     };
 
     class HttpClient : public IHttpClient {
@@ -43,7 +51,13 @@ namespace KeygenSDK {
             [[nodiscard]] Result post(
                 std::string_view url,
                 std::string_view body,
-                HttpResponse& response) const override;
+                HttpResponse& response,
+                const HttpHeaders& headers = {}) const override;
+
+            [[nodiscard]] Result deleteResource(
+                std::string_view url,
+                HttpResponse& response,
+                const HttpHeaders& headers = {}) const override;
 
         private:
             long timeoutSeconds_;

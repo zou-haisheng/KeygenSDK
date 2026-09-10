@@ -24,6 +24,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 add_library(KeygenSDK ${KEYGENSDK_LIBRARY_TYPE}
     src/Client.cpp
     src/HttpClient.cpp
+    src/MachineIdentity.cpp
 )
 
 add_library(KeygenSDK::KeygenSDK ALIAS KeygenSDK)
@@ -37,6 +38,10 @@ target_include_directories(KeygenSDK
 )
 
 target_link_libraries(KeygenSDK PRIVATE CURL::libcurl)
+
+if(WIN32)
+    target_link_libraries(KeygenSDK PRIVATE bcrypt advapi32)
+endif()
 
 if(MSVC)
     target_compile_options(KeygenSDK PRIVATE /W4 /permissive-)
@@ -83,7 +88,12 @@ install(FILES
 if(KEYGENSDK_BUILD_TESTS)
     enable_testing()
     add_executable(KeygenSDKTests tests/test_client.cpp)
-    target_link_libraries(KeygenSDKTests PRIVATE KeygenSDK::KeygenSDK)
+    target_link_libraries(
+        KeygenSDKTests
+        PRIVATE
+            KeygenSDK::KeygenSDK
+            nlohmann_json::nlohmann_json
+    )
     add_test(NAME KeygenSDKTests COMMAND KeygenSDKTests)
 endif()
 

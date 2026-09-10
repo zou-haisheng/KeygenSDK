@@ -2,6 +2,8 @@
 
 #include "KeygenSDK/HttpClient.h"
 
+#include "KeygenSDK/MachineIdentity.h"
+
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -26,6 +28,9 @@ namespace KeygenSDK {
             Config config_;
             HttpClient http_;
             IHttpClient* httpClient_;
+            bool hasLocalLicense{ false };
+            std::string machineId;
+            std::string licenseKey;
     };
 
     namespace {
@@ -116,6 +121,322 @@ namespace KeygenSDK {
             return "License validation failed.";
         }
 
+        struct ValidationResult {
+            Result result;
+            std::string licenseId;
+        };
+
+        ValidationResult validateLicense(
+            IHttpClient& httpClient,
+            const Config& config,
+            const std::string& licenseKey) {
+
+            if (licenseKey.empty()) {
+                return {
+                    Result::failure(
+                        ErrorCode::InvalidLicense,
+                        "License key must not be empty."),
+                    {}
+                };
+            }
+
+            const auto url = buildValidationUrl(config);
+
+            nlohmann::json requestJson = {
+                {
+                    "meta",
+                    {
+                        {"key", licenseKey}
+                    }
+                }
+            };
+
+            const std::string requestBody = requestJson.dump();
+
+            HttpResponse response;
+
+            const Result httpResult =
+                httpClient.post(url, requestBody, response);
+
+            if (!httpResult.ok) {
+                return { httpResult, {} };
+            }
+
+            if (response.statusCode >= 500) {
+                return {
+                    Result::failure(
+                        ErrorCode::ServerError,
+                        "Keygen server returned a server error."),
+                    {}
+                };
+            }
+
+            try {
+                const auto json =
+                    nlohmann::json::parse(response.body);
+
+                if (!json.contains("meta") ||
+                    !json["meta"].is_object()) {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen response is missing meta."),
+                        {}
+                    };
+                }
+
+                const auto& meta = json["meta"];
+
+                if (!meta.contains("valid") ||
+                    !meta["valid"].is_boolean()) {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen response is missing meta.valid."),
+                        {}
+                    };
+                }
+
+                ErrorCode mappedError = ErrorCode::Unknown;
+
+                const std::string mappedMessage =
+                    mapValidationCode(meta, mappedError);
+
+                if (mappedError != ErrorCode::None) {
+                    return {
+                        Result::failure(
+                            mappedError,
+                            mappedMessage),
+                        {}
+                    };
+                }
+
+                if (!meta["valid"].get<bool>()) {
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidLicense,
+                            "License validation failed."),
+                        {}
+                    };
+                }
+
+                if (!json.contains("data") ||
+                    !json["data"].is_object()) {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen validation response is missing data."),
+                        {}
+                    };
+                }
+
+                const auto& data = json["data"];
+
+                if (!data.contains("id") ||
+                    !data["id"].is_string() ||
+                    data["id"].get<std::string>().empty()) {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen validation response is missing license id."),
+                        {}
+                    };
+                }
+
+                return {
+                    Result::successResult(
+                        "License validation succeeded."),
+                    data["id"].get<std::string>()
+                };
+            }
+            catch (const nlohmann::json::exception&) {
+                return {
+                    Result::failure(
+                        ErrorCode::InvalidResponse,
+                        "Keygen server returned invalid JSON."),
+                    {}
+                };
+            }
+        }
+
+        // Machine URL helper
+        std::string buildMachineUrl(const Config& config) {
+            const auto host = normalizeHost(config.host);
+
+            return host +
+                "/v1/accounts/" +
+                config.accountId +
+                "/machines";
+        }
+
+        // activation request helper
+        struct ActivationResult {
+            Result result;
+            std::string machineId;
+        };
+
+        ActivationResult createMachine(
+            IHttpClient& httpClient,
+            const Config& config,
+            const std::string& licenseKey,
+            const std::string& licenseId,
+            const std::string& fingerprint) {
+
+            nlohmann::json requestJson = {
+                {
+                    "data",
+                    {
+                        {"type", "machines"},
+                        {
+                            "attributes",
+                            {
+                                {"fingerprint", fingerprint}
+                            }
+                        },
+                        {
+                            "relationships",
+                            {
+                                {
+                                    "license",
+                                    {
+                                        {
+                                            "data",
+                                            {
+                                                {"type", "licenses"},
+                                                {"id", licenseId}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            HttpResponse response;
+
+            const HttpHeaders headers{
+                "Authorization: License " + licenseKey
+            };
+
+            const Result httpResult =
+                httpClient.post(
+                    buildMachineUrl(config),
+                    requestJson.dump(),
+                    response,
+                    headers);
+
+            if (!httpResult.ok) {
+                return { httpResult, {} };
+            }
+
+            if (response.statusCode >= 500) {
+                return {
+                    Result::failure(
+                        ErrorCode::ServerError,
+                        "Keygen server returned a server error."),
+                    {}
+                };
+            }
+
+            if (response.statusCode < 200 ||
+                response.statusCode >= 300) {
+
+                return {
+                    Result::failure(
+                        ErrorCode::ActivationFailed,
+                        "Keygen machine activation request failed."),
+                    {}
+                };
+            }
+
+            try {
+                const auto json =
+                    nlohmann::json::parse(response.body);
+
+                if (!json.contains("data") ||
+                    !json["data"].is_object()) {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen machine response is missing data."),
+                        {}
+                    };
+                }
+
+                const auto& data = json["data"];
+
+                if (!data.contains("id") ||
+                    !data["id"].is_string() ||
+                    data["id"].get<std::string>().empty()) {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen machine response is missing machine id."),
+                        {}
+                    };
+                }
+
+                if (!data.contains("type") ||
+                    !data["type"].is_string() ||
+                    data["type"].get<std::string>() != "machines") {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen machine response has an invalid type."),
+                        {}
+                    };
+                }
+
+                if (!data.contains("attributes") ||
+                    !data["attributes"].is_object()) {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen machine response is missing attributes."),
+                        {}
+                    };
+                }
+
+                const auto& attributes = data["attributes"];
+
+                if (!attributes.contains("fingerprint") ||
+                    !attributes["fingerprint"].is_string() ||
+                    attributes["fingerprint"].get<std::string>().empty()) {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen machine response is missing fingerprint."),
+                        {}
+                    };
+                }
+
+                return {
+                    Result::successResult(
+                        "Machine activation succeeded."),
+                    data["id"].get<std::string>()
+                };
+            }
+            catch (const nlohmann::json::exception&) {
+                return {
+                    Result::failure(
+                        ErrorCode::InvalidResponse,
+                        "Keygen server returned invalid JSON."),
+                    {}
+                };
+            }
+        }
+
     } // namespace
 
     Client::Client(Config config)
@@ -141,7 +462,9 @@ namespace KeygenSDK {
         return *this;
     }
 
-    Result Client::validateOnline(const std::string& licenseKey) {
+    Result Client::validateOnline(
+        const std::string& licenseKey) {
+
         if (!impl_) {
             return Result::failure(
                 ErrorCode::InvalidConfiguration,
@@ -154,112 +477,125 @@ namespace KeygenSDK {
                 "host must use HTTPS, accountId must be set, and timeout must be positive.");
         }
 
-        if (licenseKey.empty()) {
+        return validateLicense(
+            *impl_->httpClient_,
+            impl_->config_,
+            licenseKey).result;
+    }
+
+    Result Client::activate(
+        const std::string& licenseKey) {
+
+        if (!impl_) {
             return Result::failure(
-                ErrorCode::InvalidLicense,
-                "License key must not be empty.");
+                ErrorCode::InvalidConfiguration,
+                "Client is not initialized.");
         }
 
-        const auto url = buildValidationUrl(impl_->config_);
+        if (!validConfig(impl_->config_)) {
+            return Result::failure(
+                ErrorCode::InvalidConfiguration,
+                "host must use HTTPS, accountId must be set, and timeout must be positive.");
+        }
 
-        nlohmann::json requestJson = {
-            {
-                "meta",
-                {
-                    {"key", licenseKey}
-                }
-            }
-        };
+        const auto validation =
+            validateLicense(
+                *impl_->httpClient_,
+                impl_->config_,
+                licenseKey);
 
-        const std::string requestBody = requestJson.dump();
+        if (!validation.result.ok) {
+            return validation.result;
+        }
+
+        std::string fingerprint;
+
+        const Result fingerprintResult =
+            MachineIdentity::fingerprint(fingerprint);
+
+        if (!fingerprintResult.ok) {
+            return fingerprintResult;
+        }
+
+        const auto activation =
+            createMachine(
+                *impl_->httpClient_,
+                impl_->config_,
+                licenseKey,
+                validation.licenseId,
+                fingerprint);
+
+        if (!activation.result.ok) {
+            return activation.result;
+        }
+
+        impl_->machineId = activation.machineId;
+        impl_->licenseKey = licenseKey;
+        impl_->hasLocalLicense = true;
+
+        return activation.result;
+    }
+
+    Result Client::verifyOffline() {
+        return Result::failure(
+            ErrorCode::OfflineDataMissing,
+            "Offline licensing is not implemented yet.");
+    }
+
+    Result Client::deactivate() {
+        if (!impl_->hasLocalLicense) {
+            return Result::failure(
+                ErrorCode::InvalidLicense,
+                "No active local license.");
+        }
+
+        if (impl_->machineId.empty()) {
+            return Result::failure(
+                ErrorCode::InvalidResponse,
+                "Local machine ID is missing.");
+        }
+
+        if (impl_->licenseKey.empty()) {
+            return Result::failure(
+                ErrorCode::InvalidLicense,
+                "Local license key is missing.");
+        }
+
+        const std::string url =
+            buildMachineUrl(impl_->config_) + "/" + impl_->machineId;
 
         HttpResponse response;
 
+        const HttpHeaders headers = {
+            "Authorization: License " + impl_->licenseKey
+        };
+
         const Result httpResult =
-            impl_->httpClient_->post(url, requestBody, response);
+            impl_->httpClient_->deleteResource(
+                url,
+                response,
+                headers);
 
         if (!httpResult.ok) {
             return httpResult;
         }
 
-        if (response.statusCode >= 500) {
-            return Result::failure(
-                ErrorCode::ServerError,
-                "Keygen server returned a server error.");
-        }
-
-        try {
-            const auto json = nlohmann::json::parse(response.body);
-
-            if (!json.contains("meta") || !json["meta"].is_object()) {
-                return Result::failure(
-                    ErrorCode::InvalidResponse,
-                    "Keygen response is missing meta.");
-            }
-
-            const auto& meta = json["meta"];
-
-            if (!meta.contains("valid") || !meta["valid"].is_boolean()) {
-                return Result::failure(
-                    ErrorCode::InvalidResponse,
-                    "Keygen response is missing meta.valid.");
-            }
-
-            ErrorCode mappedError = ErrorCode::Unknown;
-            const std::string mappedMessage =
-                mapValidationCode(meta, mappedError);
-
-            if (mappedError == ErrorCode::None) {
-                if (!meta["valid"].get<bool>()) {
-                    return Result::failure(
-                        ErrorCode::InvalidLicense,
-                        "License validation failed.");
-                }
-
-                return Result::successResult(
-                    "License validation succeeded.");
-            }
-
-            if (mappedError == ErrorCode::InvalidResponse) {
-                return Result::failure(
-                    mappedError,
-                    mappedMessage);
-            }
-
-            return Result::failure(
-                mappedError,
-                mappedMessage);
-        }
-        catch (const nlohmann::json::exception&) {
+        if (response.statusCode != 204) {
             return Result::failure(
                 ErrorCode::InvalidResponse,
-                "Keygen server returned invalid JSON.");
+                "Unexpected machine deletion response.");
         }
-    }
 
-    Result Client::activate(const std::string& licenseKey) {
-        if (!impl_) {
-            return Result::failure(ErrorCode::InvalidConfiguration, "Client is not initialized.");
-        }
-        if (licenseKey.empty()) {
-            return Result::failure(ErrorCode::InvalidLicense, "License key must not be empty.");
-        }
-        return Result::failure(ErrorCode::Unknown,
-                               "License activation is intentionally not implemented in Phase 1.");
-    }
+        impl_->machineId.clear();
+        impl_->licenseKey.clear();
+        impl_->hasLocalLicense = false;
 
-    Result Client::verifyOffline() {
-        return Result::failure(ErrorCode::OfflineDataMissing,
-                               "Offline licensing is intentionally not implemented in Phase 1.");
-    }
-
-    Result Client::deactivate() {
-        return Result::failure(ErrorCode::Unknown,
-                               "Deactivation is intentionally not implemented in Phase 1.");
+        return Result::successResult(
+            "Machine deactivation succeeded.");
     }
 
     bool Client::hasLocalLicense() const noexcept {
-        return false;
+        return impl_->hasLocalLicense;
     }
 
 } // namespace KeygenSDK

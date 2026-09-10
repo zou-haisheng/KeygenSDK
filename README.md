@@ -2,11 +2,93 @@
 
 A small, reusable C++20 client SDK for Keygen CE licensing on Windows, designed for CMake/vcpkg integration.
 
-## Phase 1 status
+## Project Status
+
+The project is developed incrementally in phases.
+
+### Phase 1 — Foundation
 
 Phase 1 establishes the library boundary, C++20 build, vcpkg manifest, libcurl HTTP foundation, result/error model, tests, and CMake package export.
 
-The Keygen API endpoints and JSON contract are intentionally **not guessed** in this phase. Phase 2 will bind the HTTP layer to the verified Keygen CE 1.8 API documentation/source.
+The Keygen API endpoints and JSON contract were intentionally not guessed in this phase.
+
+### Phase 2 — Online License Validation
+
+Phase 2 binds the SDK to the verified Keygen CE 1.8 API for online license validation.
+
+The SDK supports:
+
+- Online license-key validation
+- JSON:API request/response handling
+- Keygen license error mapping
+- Configuration validation
+- HTTP and server error handling
+- License ID extraction from successful validation responses
+- Unit tests using a fake HTTP client
+
+The validation endpoint is:
+
+```text
+POST /v1/accounts/<accountId>/licenses/actions/validate-key
+```
+
+The license key is sent in the JSON:API request body rather than being hardcoded into the SDK.
+
+### Phase 3 — Machine Activation
+
+Phase 3 adds machine activation and deactivation based on the verified Keygen machine API.
+
+The SDK supports:
+
+- Machine fingerprint generation through `MachineIdentity`
+- License validation before activation
+- Machine creation through the Keygen Machines API
+- License-key authorization for machine creation and deletion
+- Validation of the returned machine resource
+- Local activation state tracking
+- Machine deactivation
+- Safe preservation of local activation state when deactivation fails
+- Unit tests covering activation and deactivation success and failure paths
+
+Machine activation uses:
+
+```text
+POST /v1/accounts/<accountId>/machines
+```
+
+Machine deactivation uses:
+
+```text
+DELETE /v1/accounts/<accountId>/machines/<machineId>
+```
+
+The current Phase 3 implementation keeps the machine ID and license key in the in-memory client state. Persistent local license storage is intentionally deferred to Phase 4.
+
+## Current API
+
+The public client API currently includes:
+
+```cpp
+class Client {
+public:
+    explicit Client(Config config);
+    ~Client();
+
+    Client(const Client&) = delete;
+    Client& operator=(const Client&) = delete;
+
+    Client(Client&&) noexcept;
+    Client& operator=(Client&&) noexcept;
+
+    [[nodiscard]] Result validateOnline(const std::string& licenseKey);
+    [[nodiscard]] Result activate(const std::string& licenseKey);
+    [[nodiscard]] Result verifyOffline();
+    [[nodiscard]] Result deactivate();
+    [[nodiscard]] bool hasLocalLicense() const noexcept;
+};
+```
+
+Offline verification is not implemented yet. It remains part of a later phase.
 
 ## Dependencies
 
@@ -15,30 +97,89 @@ Manifest mode dependencies:
 - `curl`
 - `nlohmann-json`
 
-## Build with vcpkg Manifest Mode
+## Build with Visual Studio and CMake
 
-Configure with your vcpkg toolchain file:
+The project is intended to be configured and built through Visual Studio's built-in CMake integration.
+
+After configuring and building the project in Visual Studio, tests can be run with:
 
 ```powershell
-cmake -S . -B build -G "Visual Studio 18 2026" `
-  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-cmake --build build --config Release
-ctest --test-dir build -C Release --output-on-failure
+ctest --test-dir .\build-vs -C Debug --output-on-failure
 ```
 
-> The generator name may differ depending on the Visual Studio installation. Run `cmake --help` to see the installed generator names.
+A successful test run should report:
 
-## Install and consume
+```text
+100% tests passed, 0 tests failed
+```
+
+## Install and Consume
+
+The project exports a CMake package:
 
 ```cmake
 find_package(KeygenSDK CONFIG REQUIRED)
 target_link_libraries(MyApplication PRIVATE KeygenSDK::KeygenSDK)
 ```
 
-Then:
+Then include the public SDK header:
 
 ```cpp
 #include <KeygenSDK/KeygenSDK.h>
 ```
 
-No license key, token, secret, or private key is written by the SDK's Phase 1 example.
+## Configuration
+
+The SDK requires runtime configuration for the Keygen server and account:
+
+```cpp
+KeygenSDK::Config config{
+    .host = "https://example.com",
+    .accountId = "your-account-id",
+    .timeoutSeconds = 15
+};
+```
+
+License keys and account-specific values are not hardcoded into the SDK.
+
+## Testing
+
+The test suite uses a fake HTTP client to exercise client behavior without requiring a live Keygen server.
+
+The current tests cover:
+
+- Online validation success and failure cases
+- HTTP and server failures
+- Invalid JSON and invalid API responses
+- License error mapping
+- Machine activation success and failure cases
+- Machine response validation
+- Local activation state
+- Machine fingerprint generation
+- Machine deactivation success and failure cases
+- Preservation of local state when deactivation fails
+
+## Development Roadmap
+
+The completed phases are:
+
+- [x] Phase 1 — SDK foundation
+- [x] Phase 2 — Online license validation
+- [x] Phase 3 — Machine activation and deactivation
+- [ ] Phase 4 — Local license cache and persistence
+- [ ] Phase 5 — Offline license verification
+- [ ] Phase 6 — Final hardening, documentation, and release preparation
+
+Each phase is implemented and tested incrementally before moving to the next phase.
+
+## Security Notes
+
+The SDK does not hardcode license keys, account credentials, tokens, or private keys.
+
+Machine identification is represented by a fingerprint generated by `MachineIdentity`. The SDK does not require collecting unnecessary hardware information for the current activation flow.
+
+Persistent local licensing data and offline verification are not part of the current Phase 3 implementation.
+
+## License
+
+This project is currently under active development.
