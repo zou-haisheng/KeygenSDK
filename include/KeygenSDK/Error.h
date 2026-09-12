@@ -31,6 +31,8 @@ constexpr std::string_view toString(ErrorCode code) noexcept {
     case ErrorCode::InvalidConfiguration: return "invalid_configuration";
     case ErrorCode::NetworkError: return "network_error";
     case ErrorCode::InvalidLicense: return "invalid_license";
+    case ErrorCode::LocalStateNotFound: return "local_state_not_found";
+    case ErrorCode::LocalStorageError: return "local_storage_error";
     case ErrorCode::LicenseExpired: return "license_expired";
     case ErrorCode::LicenseSuspended: return "license_suspended";
     case ErrorCode::LicenseOverdue: return "license_overdue";

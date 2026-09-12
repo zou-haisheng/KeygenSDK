@@ -24,6 +24,14 @@ namespace KeygenSDK {
 
 } // namespace KeygenSDK
 
+namespace KeygenSDKTests {
+
+    void testLocalLicenseStoreSaveAndLoad();
+    void testLocalLicenseStoreLoadMissingState();
+    void testLocalLicenseStoreRemove();
+
+}
+
 namespace {
 
     class FakeHttpClient final : public KeygenSDK::IHttpClient {
@@ -1271,6 +1279,10 @@ int main() {
     testDeactivateHttpFailureKeepsLocalLicense();
     testDeactivateInvalidResponseKeepsLocalLicense();
     testDeactivateSuccessClearsLocalLicense();
+
+    KeygenSDKTests::testLocalLicenseStoreSaveAndLoad();
+    KeygenSDKTests::testLocalLicenseStoreLoadMissingState();
+    KeygenSDKTests::testLocalLicenseStoreRemove();
 
     return 0;
 }
