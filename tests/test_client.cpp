@@ -1,6 +1,8 @@
 #include <KeygenSDK/Client.h>
 #include <KeygenSDK/HttpClient.h>
 #include <KeygenSDK/MachineIdentity.h>
+#include <KeygenSDK/LocalLicenseState.h>
+#include <KeygenSDK/LocalLicenseStore.h>
 
 #include <cassert>
 #include <string>
@@ -1117,6 +1119,61 @@ namespace {
             "Authorization: License TEST-LICENSE-KEY");
     }
 
+    void testLocalLicenseStateValid() {
+        KeygenSDK::LocalLicenseState state{
+            .licenseId = "test-license-id",
+            .licenseKey = "TEST-LICENSE-KEY",
+            .machineId = "test-machine-id",
+            .machineFingerprint = "test-fingerprint"
+        };
+
+        assert(state.isValid());
+    }
+
+    void testLocalLicenseStateMissingLicenseId() {
+        KeygenSDK::LocalLicenseState state{
+            .licenseId = "",
+            .licenseKey = "TEST-LICENSE-KEY",
+            .machineId = "test-machine-id",
+            .machineFingerprint = "test-fingerprint"
+        };
+
+        assert(!state.isValid());
+    }
+
+    void testLocalLicenseStateMissingLicenseKey() {
+        KeygenSDK::LocalLicenseState state{
+            .licenseId = "test-license-id",
+            .licenseKey = "",
+            .machineId = "test-machine-id",
+            .machineFingerprint = "test-fingerprint"
+        };
+
+        assert(!state.isValid());
+    }
+
+    void testLocalLicenseStateMissingMachineId() {
+        KeygenSDK::LocalLicenseState state{
+            .licenseId = "test-license-id",
+            .licenseKey = "TEST-LICENSE-KEY",
+            .machineId = "",
+            .machineFingerprint = "test-fingerprint"
+        };
+
+        assert(!state.isValid());
+    }
+
+    void testLocalLicenseStateMissingMachineFingerprint() {
+        KeygenSDK::LocalLicenseState state{
+            .licenseId = "test-license-id",
+            .licenseKey = "TEST-LICENSE-KEY",
+            .machineId = "test-machine-id",
+            .machineFingerprint = ""
+        };
+
+        assert(!state.isValid());
+    }
+
     void testMachineFingerprint() {
         std::string fingerprint;
 
@@ -1194,6 +1251,11 @@ int main() {
     testInvalidHost();
     testEmptyHttpsHost();
     testMachineFingerprint();
+    testLocalLicenseStateValid();
+    testLocalLicenseStateMissingLicenseId();
+    testLocalLicenseStateMissingLicenseKey();
+    testLocalLicenseStateMissingMachineId();
+    testLocalLicenseStateMissingMachineFingerprint();
     testActivationSuccess();
     testActivationStopsWhenLicenseIsInvalid();
     testActivationHttpFailure();

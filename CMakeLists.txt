@@ -87,7 +87,10 @@ install(FILES
 
 if(KEYGENSDK_BUILD_TESTS)
     enable_testing()
-    add_executable(KeygenSDKTests tests/test_client.cpp)
+    add_executable(KeygenSDKTests
+        tests/test_client.cpp
+        tests/test_local_license_store.cpp
+    )
     target_link_libraries(
         KeygenSDKTests
         PRIVATE

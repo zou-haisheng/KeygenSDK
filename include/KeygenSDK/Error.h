@@ -10,6 +10,8 @@ enum class ErrorCode {
     InvalidConfiguration,
     NetworkError,
     InvalidLicense,
+    LocalStateNotFound,
+    LocalStorageError,
     LicenseExpired,
     LicenseSuspended,
     LicenseRevoked,
