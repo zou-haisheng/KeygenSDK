@@ -25,6 +25,7 @@ add_library(KeygenSDK ${KEYGENSDK_LIBRARY_TYPE}
     src/Client.cpp
     src/HttpClient.cpp
     src/MachineIdentity.cpp
+    src/LocalLicenseSerialization.cpp
 )
 
 add_library(KeygenSDK::KeygenSDK ALIAS KeygenSDK)
@@ -37,7 +38,12 @@ target_include_directories(KeygenSDK
         $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(KeygenSDK PRIVATE CURL::libcurl)
+target_link_libraries(
+    KeygenSDK 
+    PRIVATE 
+        CURL::libcurl
+        nlohmann_json::nlohmann_json
+)
 
 if(WIN32)
     target_link_libraries(KeygenSDK PRIVATE bcrypt advapi32)
@@ -90,6 +96,7 @@ if(KEYGENSDK_BUILD_TESTS)
     add_executable(KeygenSDKTests
         tests/test_client.cpp
         tests/test_local_license_store.cpp
+        tests/test_local_license_serialization.cpp
     )
     target_link_libraries(
         KeygenSDKTests

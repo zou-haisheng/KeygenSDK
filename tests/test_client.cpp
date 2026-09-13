@@ -30,6 +30,18 @@ namespace KeygenSDKTests {
     void testLocalLicenseStoreLoadMissingState();
     void testLocalLicenseStoreRemove();
 
+    void testLocalLicenseSerializationRoundTrip();
+    void testLocalLicenseSerializationRejectsInvalidState();
+    void testLocalLicenseDeserializationRejectsMalformedJson();
+    void testLocalLicenseDeserializationRejectsMissingVersion();
+    void testLocalLicenseDeserializationRejectsUnsupportedVersion();
+    void testLocalLicenseDeserializationRejectsMissingLicense();
+    void testLocalLicenseDeserializationRejectsMissingMachine();
+    void testLocalLicenseDeserializationRejectsMissingRequiredField();
+    void testLocalLicenseDeserializationRejectsInvalidFieldType();
+    void testLocalLicenseDeserializationRejectsEmptyRequiredField();
+    void testLocalLicenseDeserializationAllowsUnknownFields();
+
 }
 
 namespace {
@@ -1284,5 +1296,16 @@ int main() {
     KeygenSDKTests::testLocalLicenseStoreLoadMissingState();
     KeygenSDKTests::testLocalLicenseStoreRemove();
 
+    KeygenSDKTests::testLocalLicenseSerializationRoundTrip();
+    KeygenSDKTests::testLocalLicenseSerializationRejectsInvalidState();
+    KeygenSDKTests::testLocalLicenseDeserializationRejectsMalformedJson();
+    KeygenSDKTests::testLocalLicenseDeserializationRejectsMissingVersion();
+    KeygenSDKTests::testLocalLicenseDeserializationRejectsUnsupportedVersion();
+    KeygenSDKTests::testLocalLicenseDeserializationRejectsMissingLicense();
+    KeygenSDKTests::testLocalLicenseDeserializationRejectsMissingMachine();
+    KeygenSDKTests::testLocalLicenseDeserializationRejectsMissingRequiredField();
+    KeygenSDKTests::testLocalLicenseDeserializationRejectsInvalidFieldType();
+    KeygenSDKTests::testLocalLicenseDeserializationRejectsEmptyRequiredField();
+    KeygenSDKTests::testLocalLicenseDeserializationAllowsUnknownFields();
     return 0;
 }
