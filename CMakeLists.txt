@@ -26,6 +26,7 @@ add_library(KeygenSDK ${KEYGENSDK_LIBRARY_TYPE}
     src/HttpClient.cpp
     src/MachineIdentity.cpp
     src/LocalLicenseSerialization.cpp
+    src/FileLocalLicenseStore.cpp
 )
 
 add_library(KeygenSDK::KeygenSDK ALIAS KeygenSDK)
@@ -97,6 +98,7 @@ if(KEYGENSDK_BUILD_TESTS)
         tests/test_client.cpp
         tests/test_local_license_store.cpp
         tests/test_local_license_serialization.cpp
+        tests/test_file_local_license_store.cpp
     )
     target_link_libraries(
         KeygenSDKTests

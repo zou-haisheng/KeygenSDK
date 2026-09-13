@@ -42,6 +42,11 @@ namespace KeygenSDKTests {
     void testLocalLicenseDeserializationRejectsEmptyRequiredField();
     void testLocalLicenseDeserializationAllowsUnknownFields();
 
+    void testFileLocalLicenseStoreSaveAndLoad();
+    void testFileLocalLicenseStoreLoadMissingFile();
+    void testFileLocalLicenseStoreRemove();
+    void testFileLocalLicenseStoreMalformedJson();
+
 }
 
 namespace {
@@ -1307,5 +1312,10 @@ int main() {
     KeygenSDKTests::testLocalLicenseDeserializationRejectsInvalidFieldType();
     KeygenSDKTests::testLocalLicenseDeserializationRejectsEmptyRequiredField();
     KeygenSDKTests::testLocalLicenseDeserializationAllowsUnknownFields();
+
+    KeygenSDKTests::testFileLocalLicenseStoreSaveAndLoad();
+    KeygenSDKTests::testFileLocalLicenseStoreLoadMissingFile();
+    KeygenSDKTests::testFileLocalLicenseStoreRemove();
+    KeygenSDKTests::testFileLocalLicenseStoreMalformedJson();
     return 0;
 }
