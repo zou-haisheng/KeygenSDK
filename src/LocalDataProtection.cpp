@@ -22,7 +22,7 @@ namespace KeygenSDK {
 
         if (plaintext.empty()) {
             return Result::failure(
-                ErrorCode::InvalidArgument,
+                ErrorCode::LocalStorageError,
                 "Plaintext cannot be empty.");
         }
 
@@ -64,7 +64,7 @@ namespace KeygenSDK {
 
         if (protectedData.empty()) {
             return Result::failure(
-                ErrorCode::InvalidArgument,
+                ErrorCode::LocalStorageError,
                 "Protected data cannot be empty.");
         }
 

@@ -1,6 +1,7 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 
 #include "KeygenSDK/FileLocalLicenseStore.h"
 
@@ -110,6 +111,77 @@ namespace KeygenSDKTests {
         KeygenSDK::LocalLicenseState state;
 
         const auto result = store.load(state);
+
+        assert(!result.ok);
+
+        std::error_code error;
+        std::filesystem::remove(path, error);
+    }
+
+    void testFileLocalLicenseStoreDoesNotStorePlaintext() {
+        const auto path =
+            makeTestPath(
+                "keygensdk-test-protected-license-state.json");
+
+        std::error_code error;
+        std::filesystem::remove(path, error);
+
+        const auto state = makeTestState();
+
+        KeygenSDK::FileLocalLicenseStore store(path);
+
+        const auto saveResult =
+            store.save(state);
+
+        assert(saveResult.ok);
+
+        std::ifstream file(
+            path,
+            std::ios::binary);
+
+        assert(file.is_open());
+
+        std::ostringstream buffer;
+        buffer << file.rdbuf();
+
+        const std::string contents =
+            buffer.str();
+
+        assert(!contents.empty());
+        assert(
+            contents.find(state.licenseKey) ==
+            std::string::npos);
+
+        assert(
+            contents.find(state.licenseId) ==
+            std::string::npos);
+
+        assert(
+            contents.find(state.machineId) ==
+            std::string::npos);
+
+        std::filesystem::remove(path, error);
+    }
+
+    void testFileLocalLicenseStoreRejectsTamperedData() {
+        const auto path =
+            makeTestPath(
+                "keygensdk-test-tampered-license-state.dat");
+
+        {
+            std::ofstream file(
+                path,
+                std::ios::binary);
+
+            file << "tampered-data";
+        }
+
+        KeygenSDK::FileLocalLicenseStore store(path);
+
+        KeygenSDK::LocalLicenseState state;
+
+        const auto result =
+            store.load(state);
 
         assert(!result.ok);
 

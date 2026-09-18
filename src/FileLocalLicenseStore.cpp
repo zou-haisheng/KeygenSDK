@@ -1,10 +1,10 @@
 #include "KeygenSDK/FileLocalLicenseStore.h"
+#include "KeygenSDK/LocalLicenseSerialization.h"
+#include "KeygenSDK/LocalDataProtection.h"
 
 #include <fstream>
 #include <sstream>
 #include <utility>
-
-#include "KeygenSDK/LocalLicenseSerialization.h"
 
 namespace KeygenSDK {
 
@@ -15,7 +15,9 @@ namespace KeygenSDK {
     Result FileLocalLicenseStore::load(
         LocalLicenseState& state) const {
 
-        std::ifstream file(path_, std::ios::binary);
+        std::ifstream file(
+            path_,
+            std::ios::binary);
 
         if (!file.is_open()) {
             if (!std::filesystem::exists(path_)) {
@@ -30,6 +32,7 @@ namespace KeygenSDK {
         }
 
         std::ostringstream buffer;
+
         buffer << file.rdbuf();
 
         if (file.fail() && !file.eof()) {
@@ -38,10 +41,28 @@ namespace KeygenSDK {
                 "Failed to read local license state file.");
         }
 
-        const std::string contents = buffer.str();
+        const std::string protectedData =
+            buffer.str();
+
+        if (protectedData.empty()) {
+            return Result::failure(
+                ErrorCode::LocalStorageError,
+                "Local license state file is empty.");
+        }
+
+        std::string serialized;
+
+        const auto unprotectResult =
+            LocalDataProtection::unprotect(
+                protectedData,
+                serialized);
+
+        if (!unprotectResult.ok) {
+            return unprotectResult;
+        }
 
         return LocalLicenseSerializer::deserialize(
-            contents,
+            serialized,
             state);
     }
 
@@ -59,6 +80,17 @@ namespace KeygenSDK {
             return serializeResult;
         }
 
+        std::string protectedData;
+
+        const auto protectResult =
+            LocalDataProtection::protect(
+                serialized,
+                protectedData);
+
+        if (!protectResult.ok) {
+            return protectResult;
+        }
+
         std::ofstream file(
             path_,
             std::ios::binary |
@@ -70,7 +102,10 @@ namespace KeygenSDK {
                 "Failed to open local license state file for writing.");
         }
 
-        file << serialized;
+        file.write(
+            protectedData.data(),
+            static_cast<std::streamsize>(
+                protectedData.size()));
 
         if (!file.good()) {
             return Result::failure(
