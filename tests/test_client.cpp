@@ -47,6 +47,13 @@ namespace KeygenSDKTests {
     void testFileLocalLicenseStoreRemove();
     void testFileLocalLicenseStoreMalformedJson();
 
+    void testLocalDataProtectionRoundTrip();
+    void testLocalDataProtectionRejectsEmptyPlaintext();
+    void testLocalDataProtectionRejectsEmptyProtectedData();
+    void testLocalDataProtectionRejectsInvalidProtectedData();
+    void testLocalDataProtectionDoesNotModifyOutputOnProtectFailure();
+    void testLocalDataProtectionDoesNotModifyOutputOnUnprotectFailure();
+
 }
 
 namespace {
@@ -1317,5 +1324,12 @@ int main() {
     KeygenSDKTests::testFileLocalLicenseStoreLoadMissingFile();
     KeygenSDKTests::testFileLocalLicenseStoreRemove();
     KeygenSDKTests::testFileLocalLicenseStoreMalformedJson();
+
+    KeygenSDKTests::testLocalDataProtectionRoundTrip();
+    KeygenSDKTests::testLocalDataProtectionRejectsEmptyPlaintext();
+    KeygenSDKTests::testLocalDataProtectionRejectsEmptyProtectedData();
+    KeygenSDKTests::testLocalDataProtectionRejectsInvalidProtectedData();
+    KeygenSDKTests::testLocalDataProtectionDoesNotModifyOutputOnProtectFailure();
+    KeygenSDKTests::testLocalDataProtectionDoesNotModifyOutputOnUnprotectFailure();
     return 0;
 }

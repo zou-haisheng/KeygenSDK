@@ -27,6 +27,7 @@ add_library(KeygenSDK ${KEYGENSDK_LIBRARY_TYPE}
     src/MachineIdentity.cpp
     src/LocalLicenseSerialization.cpp
     src/FileLocalLicenseStore.cpp
+    src/LocalDataProtection.cpp
 )
 
 add_library(KeygenSDK::KeygenSDK ALIAS KeygenSDK)
@@ -44,6 +45,7 @@ target_link_libraries(
     PRIVATE 
         CURL::libcurl
         nlohmann_json::nlohmann_json
+        Crypt32
 )
 
 if(WIN32)
@@ -99,6 +101,7 @@ if(KEYGENSDK_BUILD_TESTS)
         tests/test_local_license_store.cpp
         tests/test_local_license_serialization.cpp
         tests/test_file_local_license_store.cpp
+        tests/test_local_data_protection.cpp
     )
     target_link_libraries(
         KeygenSDKTests
