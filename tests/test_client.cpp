@@ -9,17 +9,31 @@
 #include <utility>
 #include <nlohmann/json.hpp>
 #include <iostream>
+#include <memory>
 
 namespace KeygenSDK {
 
     class ClientTestAccess {
-    public:
-        static Client create(
-            Config config,
-            IHttpClient& httpClient) {
+        public:
+            static Client create(
+                Config config,
+                IHttpClient& httpClient) {
 
-            return Client(std::move(config), httpClient);
-        }
+                return Client(
+                    std::move(config),
+                    httpClient);
+            }
+
+            static Client create(
+                Config config,
+                IHttpClient& httpClient,
+                std::unique_ptr<ILocalLicenseStore> localStore) {
+
+                return Client(
+                    std::move(config),
+                    httpClient,
+                    std::move(localStore));
+            }
     };
 
 } // namespace KeygenSDK
@@ -1224,6 +1238,142 @@ namespace {
                 (ch >= '0' && ch <= '9') ||
                 (ch >= 'a' && ch <= 'f'));
         }
+    }
+
+    class FakeLocalLicenseStore final
+        : public KeygenSDK::ILocalLicenseStore {
+
+        public:
+            KeygenSDK::Result load(
+                KeygenSDK::LocalLicenseState& state) const override {
+
+                ++loadCallCount;
+
+                if (!loadResult.ok) {
+                    return loadResult;
+                }
+
+                state = storedState;
+                return KeygenSDK::Result::successResult(
+                    "fake load");
+            }
+
+            KeygenSDK::Result save(
+                const KeygenSDK::LocalLicenseState& state) override {
+
+                ++saveCallCount;
+
+                if (!saveResult.ok) {
+                    return saveResult;
+                }
+
+                storedState = state;
+
+                return KeygenSDK::Result::successResult(
+                    "fake save");
+            }
+
+            KeygenSDK::Result remove() override {
+
+                ++removeCallCount;
+
+                if (!removeResult.ok) {
+                    return removeResult;
+                }
+
+                storedState = {};
+                return KeygenSDK::Result::successResult(
+                    "fake remove");
+            }
+
+            mutable int loadCallCount{ 0 };
+            int saveCallCount{ 0 };
+            int removeCallCount{ 0 };
+
+            mutable KeygenSDK::LocalLicenseState storedState;
+
+            mutable KeygenSDK::Result loadResult =
+                KeygenSDK::Result::successResult();
+
+            KeygenSDK::Result saveResult =
+                KeygenSDK::Result::successResult();
+
+            KeygenSDK::Result removeResult =
+                KeygenSDK::Result::successResult();
+    };
+
+    void testLoadLocalLicenseMissingState() {
+
+        FakeHttpClient http;
+
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
+        store->loadResult =
+            KeygenSDK::Result::failure(
+                KeygenSDK::ErrorCode::LocalStateNotFound,
+                "no local state");
+
+        auto* storePtr = store.get();
+
+        auto client =
+            KeygenSDK::ClientTestAccess::create(
+                testConfig(),
+                http,
+                std::move(store));
+
+        assert(!client.hasLocalLicense());
+
+        const auto result =
+            client.loadLocalLicense();
+
+        assert(result.ok);
+
+        assert(
+            result.error ==
+            KeygenSDK::ErrorCode::None);
+
+        assert(!client.hasLocalLicense());
+
+        assert(storePtr->loadCallCount == 1);
+    }
+
+    void testLoadLocalLicenseStorageFailure() {
+
+        FakeHttpClient http;
+
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
+        store->loadResult =
+            KeygenSDK::Result::failure(
+                KeygenSDK::ErrorCode::LocalStorageError,
+                "simulated local storage failure");
+
+        auto* storePtr = store.get();
+
+        auto client =
+            KeygenSDK::ClientTestAccess::create(
+                testConfig(),
+                http,
+                std::move(store));
+
+        const auto result =
+            client.loadLocalLicense();
+
+        assert(!result.ok);
+
+        assert(
+            result.error ==
+            KeygenSDK::ErrorCode::LocalStorageError);
+
+        assert(
+            result.message ==
+            "simulated local storage failure");
+
+        assert(!client.hasLocalLicense());
+
+        assert(storePtr->loadCallCount == 1);
     }
 
 } // namespace

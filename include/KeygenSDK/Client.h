@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 
 #include "KeygenSDK/Error.h"
@@ -8,6 +9,7 @@
 namespace KeygenSDK {
 
     class IHttpClient;
+    class ILocalLicenseStore;
 
     class Client {
         public:
@@ -23,6 +25,7 @@ namespace KeygenSDK {
             [[nodiscard]] Result activate(const std::string& licenseKey);
             [[nodiscard]] Result verifyOffline();
             [[nodiscard]] Result deactivate();
+            [[nodiscard]] Result loadLocalLicense();
 
             [[nodiscard]] bool hasLocalLicense() const noexcept;
 
@@ -30,6 +33,11 @@ namespace KeygenSDK {
             class Impl;
 
             explicit Client(Config config, IHttpClient& httpClient);
+
+            Client(
+                Config config,
+                IHttpClient& httpClient,
+                std::unique_ptr<ILocalLicenseStore> localStore);
 
             friend class ClientTestAccess;
 

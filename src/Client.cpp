@@ -1,8 +1,9 @@
 #include "KeygenSDK/Client.h"
-
 #include "KeygenSDK/HttpClient.h"
-
 #include "KeygenSDK/MachineIdentity.h"
+#include "KeygenSDK/FileLocalLicenseStore.h"
+#include "KeygenSDK/LocalLicenseStore.h"
+#include "KeygenSDK/LocalLicenseState.h"
 
 #include <nlohmann/json.hpp>
 
@@ -14,23 +15,40 @@
 namespace KeygenSDK {
 
     class Client::Impl {
-        public:
-            explicit Impl(Config config)
-                : config_(std::move(config)),
-                http_(config_.timeoutSeconds),
-                httpClient_(&http_) {}
+    public:
+        explicit Impl(Config config)
+            : config_(std::move(config)),
+            http_(config_.timeoutSeconds),
+            httpClient_(&http_) {}
 
-            Impl(Config config, IHttpClient& httpClient)
-                : config_(std::move(config)),
-                http_(config_.timeoutSeconds),
-                httpClient_(&httpClient) {}
+        Impl(
+            Config config,
+            IHttpClient& httpClient)
+            : config_(std::move(config)),
+            http_(config_.timeoutSeconds),
+            httpClient_(&httpClient) {}
 
-            Config config_;
-            HttpClient http_;
-            IHttpClient* httpClient_;
-            bool hasLocalLicense{ false };
-            std::string machineId;
-            std::string licenseKey;
+        Impl(
+            Config config,
+            IHttpClient& httpClient,
+            std::unique_ptr<ILocalLicenseStore> localStore)
+            : config_(std::move(config)),
+            http_(config_.timeoutSeconds),
+            httpClient_(&httpClient),
+            localStore_(std::move(localStore)) {}
+
+        Config config_;
+        HttpClient http_;
+        IHttpClient* httpClient_;
+
+        std::unique_ptr<ILocalLicenseStore> localStore_;
+
+        bool hasLocalLicense{ false };
+
+        std::string licenseId;
+        std::string licenseKey;
+        std::string machineId;
+        std::string machineFingerprint;
     };
 
     namespace {
@@ -437,6 +455,20 @@ namespace KeygenSDK {
             }
         }
 
+        LocalLicenseState makeLocalLicenseState(
+            const std::string& licenseId,
+            const std::string& licenseKey,
+            const std::string& machineId,
+            const std::string& machineFingerprint) {
+
+            return LocalLicenseState{
+                .licenseId = licenseId,
+                .licenseKey = licenseKey,
+                .machineId = machineId,
+                .machineFingerprint = machineFingerprint
+            };
+        }
+
     } // namespace
 
     Client::Client(Config config)
@@ -444,6 +476,16 @@ namespace KeygenSDK {
 
     Client::Client(Config config, IHttpClient& httpClient)
         : impl_(new Impl(std::move(config), httpClient)) {}
+
+    Client::Client(
+        Config config,
+        IHttpClient& httpClient,
+        std::unique_ptr<ILocalLicenseStore> localStore)
+        : impl_(
+            new Impl(
+                std::move(config),
+                httpClient,
+                std::move(localStore))) {}
 
     Client::~Client() {
         delete impl_;
@@ -460,6 +502,67 @@ namespace KeygenSDK {
             other.impl_ = nullptr;
         }
         return *this;
+    }
+
+    Result Client::loadLocalLicense() {
+
+        if (!impl_) {
+            return Result::failure(
+                ErrorCode::InvalidConfiguration,
+                "Client is not initialized.");
+        }
+
+        if (!impl_->localStore_) {
+            return Result::failure(
+                ErrorCode::InvalidConfiguration,
+                "Local license store is not configured.");
+        }
+
+        LocalLicenseState state;
+
+        const Result loadResult =
+            impl_->localStore_->load(state);
+
+        if (!loadResult.ok) {
+
+            if (loadResult.error ==
+                ErrorCode::LocalStateNotFound) {
+
+                impl_->licenseId.clear();
+                impl_->licenseKey.clear();
+                impl_->machineId.clear();
+                impl_->machineFingerprint.clear();
+                impl_->hasLocalLicense = false;
+
+                return Result::successResult(
+                    "No local license state found.");
+            }
+
+            return loadResult;
+        }
+
+        if (!state.isValid()) {
+            return Result::failure(
+                ErrorCode::LocalStorageError,
+                "Local license state is invalid.");
+        }
+
+        impl_->licenseId =
+            state.licenseId;
+
+        impl_->licenseKey =
+            state.licenseKey;
+
+        impl_->machineId =
+            state.machineId;
+
+        impl_->machineFingerprint =
+            state.machineFingerprint;
+
+        impl_->hasLocalLicense = true;
+
+        return Result::successResult(
+            "Local license state loaded successfully.");
     }
 
     Result Client::validateOnline(
