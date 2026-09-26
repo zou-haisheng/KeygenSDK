@@ -7,6 +7,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <windows.h>
+
 #include <algorithm>
 #include <cctype>
 #include <memory>
@@ -14,44 +16,28 @@
 
 namespace KeygenSDK {
 
-    class Client::Impl {
-    public:
-        explicit Impl(Config config)
-            : config_(std::move(config)),
-            http_(config_.timeoutSeconds),
-            httpClient_(&http_) {}
-
-        Impl(
-            Config config,
-            IHttpClient& httpClient)
-            : config_(std::move(config)),
-            http_(config_.timeoutSeconds),
-            httpClient_(&httpClient) {}
-
-        Impl(
-            Config config,
-            IHttpClient& httpClient,
-            std::unique_ptr<ILocalLicenseStore> localStore)
-            : config_(std::move(config)),
-            http_(config_.timeoutSeconds),
-            httpClient_(&httpClient),
-            localStore_(std::move(localStore)) {}
-
-        Config config_;
-        HttpClient http_;
-        IHttpClient* httpClient_;
-
-        std::unique_ptr<ILocalLicenseStore> localStore_;
-
-        bool hasLocalLicense{ false };
-
-        std::string licenseId;
-        std::string licenseKey;
-        std::string machineId;
-        std::string machineFingerprint;
-    };
-
     namespace {
+
+        std::filesystem::path defaultLocalLicensePath() {
+
+            wchar_t buffer[32768]{};
+
+            const DWORD length =
+                GetEnvironmentVariableW(
+                    L"LOCALAPPDATA",
+                    buffer,
+                    static_cast<DWORD>(std::size(buffer)));
+
+            if (length == 0 ||
+                length >= std::size(buffer)) {
+
+                return {};
+            }
+
+            return std::filesystem::path(buffer) /
+                L"KeygenSDK" /
+                L"license.dat";
+        }
 
         std::string normalizeHost(std::string host) {
             while (!host.empty() && std::isspace(static_cast<unsigned char>(host.back()))) {
@@ -470,6 +456,67 @@ namespace KeygenSDK {
         }
 
     } // namespace
+
+    class Client::Impl {
+    public:
+        explicit Impl(Config config)
+            : config_(std::move(config)),
+            http_(config_.timeoutSeconds),
+            httpClient_(&http_) {
+
+            const auto path =
+                config_.localLicensePath.empty()
+                ? defaultLocalLicensePath()
+                : config_.localLicensePath;
+
+            if (!path.empty()) {
+                localStore_ =
+                    std::make_unique<FileLocalLicenseStore>(
+                        path);
+            }
+        }
+
+        Impl(
+            Config config,
+            IHttpClient& httpClient)
+            : config_(std::move(config)),
+            http_(config_.timeoutSeconds),
+            httpClient_(&httpClient) {
+
+            const auto path =
+                config_.localLicensePath.empty()
+                ? defaultLocalLicensePath()
+                : config_.localLicensePath;
+
+            if (!path.empty()) {
+                localStore_ =
+                    std::make_unique<FileLocalLicenseStore>(
+                        path);
+            }
+        }
+
+        Impl(
+            Config config,
+            IHttpClient& httpClient,
+            std::unique_ptr<ILocalLicenseStore> localStore)
+            : config_(std::move(config)),
+            http_(config_.timeoutSeconds),
+            httpClient_(&httpClient),
+            localStore_(std::move(localStore)) {}
+
+        Config config_;
+        HttpClient http_;
+        IHttpClient* httpClient_;
+
+        std::unique_ptr<ILocalLicenseStore> localStore_;
+
+        bool hasLocalLicense{ false };
+
+        std::string licenseId;
+        std::string licenseKey;
+        std::string machineId;
+        std::string machineFingerprint;
+    };
 
     Client::Client(Config config)
         : impl_(new Impl(std::move(config))) {}

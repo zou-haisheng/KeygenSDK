@@ -4,6 +4,7 @@
 
 #include <fstream>
 #include <sstream>
+#include <system_error>
 #include <utility>
 
 namespace KeygenSDK {
@@ -14,6 +15,12 @@ namespace KeygenSDK {
 
     Result FileLocalLicenseStore::load(
         LocalLicenseState& state) const {
+
+        if (path_.empty()) {
+            return Result::failure(
+                ErrorCode::LocalStorageError,
+                "Local license state path is empty.");
+        }
 
         std::ifstream file(
             path_,
@@ -69,6 +76,12 @@ namespace KeygenSDK {
     Result FileLocalLicenseStore::save(
         const LocalLicenseState& state) {
 
+        if (path_.empty()) {
+            return Result::failure(
+                ErrorCode::LocalStorageError,
+                "Local license state path is empty.");
+        }
+
         std::string serialized;
 
         const auto serializeResult =
@@ -89,6 +102,23 @@ namespace KeygenSDK {
 
         if (!protectResult.ok) {
             return protectResult;
+        }
+
+        const auto parentPath =
+            path_.parent_path();
+
+        if (!parentPath.empty()) {
+            std::error_code directoryError;
+
+            std::filesystem::create_directories(
+                parentPath,
+                directoryError);
+
+            if (directoryError) {
+                return Result::failure(
+                    ErrorCode::LocalStorageError,
+                    "Failed to create local license state directory.");
+            }
         }
 
         std::ofstream file(
@@ -126,6 +156,12 @@ namespace KeygenSDK {
     }
 
     Result FileLocalLicenseStore::remove() {
+
+        if (path_.empty()) {
+            return Result::failure(
+                ErrorCode::LocalStorageError,
+                "Local license state path is empty.");
+        }
 
         std::error_code error;
 
