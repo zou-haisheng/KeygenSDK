@@ -5,10 +5,10 @@
 #include <KeygenSDK/LocalLicenseStore.h>
 
 #include <cassert>
+#include <filesystem>
 #include <string>
 #include <utility>
 #include <nlohmann/json.hpp>
-#include <iostream>
 #include <memory>
 
 namespace KeygenSDK {
@@ -1735,6 +1735,115 @@ namespace {
         assert(!client.hasLocalLicense());
     }
 
+    void testClientDefaultLocalLicenseStoreLifecycle() {
+
+        FakeHttpClient http;
+
+        http.validationResponseBody = R"({
+        "meta": {
+            "valid": true,
+            "code": "VALID"
+        },
+        "data": {
+            "id": "test-license-id",
+            "type": "licenses"
+        }
+    })";
+
+        http.activationResponseBody = R"({
+        "data": {
+            "id": "test-machine-id",
+            "type": "machines",
+            "attributes": {
+                "fingerprint": "test-fingerprint"
+            }
+        }
+    })";
+
+        const auto testDirectory =
+            std::filesystem::temp_directory_path() /
+            "KeygenSDKTests" /
+            "ClientDefaultLocalLicenseStore";
+
+        std::error_code cleanupError;
+
+        std::filesystem::remove_all(
+            testDirectory,
+            cleanupError);
+
+        const auto licensePath =
+            testDirectory /
+            "license.dat";
+
+        KeygenSDK::Config config = {
+            .host = "https://example.invalid",
+            .accountId = "test-account",
+            .timeoutSeconds = 5,
+            .localLicensePath = licensePath
+        };
+
+        {
+            KeygenSDK::Client client =
+                KeygenSDK::ClientTestAccess::create(
+                    config,
+                    http);
+
+            const KeygenSDK::Result result =
+                client.activate("TEST-LICENSE-KEY");
+
+            assert(result.ok);
+            assert(client.hasLocalLicense());
+
+            assert(
+                std::filesystem::exists(
+                    licensePath));
+        }
+
+        {
+            KeygenSDK::Client client =
+                KeygenSDK::ClientTestAccess::create(
+                    config,
+                    http);
+
+            assert(!client.hasLocalLicense());
+
+            const KeygenSDK::Result result =
+                client.loadLocalLicense();
+
+            assert(result.ok);
+            assert(client.hasLocalLicense());
+        }
+
+        {
+            KeygenSDK::Client client =
+                KeygenSDK::ClientTestAccess::create(
+                    config,
+                    http);
+
+            const KeygenSDK::Result loadResult =
+                client.loadLocalLicense();
+
+            assert(loadResult.ok);
+            assert(client.hasLocalLicense());
+
+            http.deleteStatusCode = 204;
+
+            const KeygenSDK::Result deactivateResult =
+                client.deactivate();
+
+            assert(deactivateResult.ok);
+            assert(!client.hasLocalLicense());
+
+            assert(
+                !std::filesystem::exists(
+                    licensePath));
+        }
+
+        std::filesystem::remove_all(
+            testDirectory,
+            cleanupError);
+    }
+
 } // namespace
 
 int main() {
@@ -1823,6 +1932,7 @@ int main() {
     testLoadLocalLicenseSuccess();
     testLoadLocalLicenseRejectsInvalidState();
     testLoadLocalLicenseMissingStateClearsExistingState();
+    testClientDefaultLocalLicenseStoreLifecycle();
 
     KeygenSDKTests::testLocalLicenseStoreSaveAndLoad();
     KeygenSDKTests::testLocalLicenseStoreLoadMissingState();
