@@ -57,6 +57,8 @@ namespace KeygenSDKTests {
     void testLocalLicenseDeserializationAllowsUnknownFields();
 
     void testFileLocalLicenseStoreSaveAndLoad();
+    void testFileLocalLicenseStoreAtomicReplacement();
+    void testFileLocalLicenseStoreDoesNotLeaveTemporaryFile();
     void testFileLocalLicenseStoreLoadMissingFile();
     void testFileLocalLicenseStoreRemove();
     void testFileLocalLicenseStoreMalformedJson();
@@ -1951,6 +1953,8 @@ int main() {
     KeygenSDKTests::testLocalLicenseDeserializationAllowsUnknownFields();
 
     KeygenSDKTests::testFileLocalLicenseStoreSaveAndLoad();
+    KeygenSDKTests::testFileLocalLicenseStoreAtomicReplacement();
+    KeygenSDKTests::testFileLocalLicenseStoreDoesNotLeaveTemporaryFile();
     KeygenSDKTests::testFileLocalLicenseStoreLoadMissingFile();
     KeygenSDKTests::testFileLocalLicenseStoreRemove();
     KeygenSDKTests::testFileLocalLicenseStoreMalformedJson();

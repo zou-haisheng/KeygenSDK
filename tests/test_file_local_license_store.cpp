@@ -57,6 +57,117 @@ namespace KeygenSDKTests {
         std::filesystem::remove(path, error);
     }
 
+    void testFileLocalLicenseStoreAtomicReplacement() {
+        const auto path =
+            makeTestPath(
+                "keygensdk-test-atomic-replacement.dat");
+
+        std::error_code error;
+        std::filesystem::remove(path, error);
+
+        KeygenSDK::FileLocalLicenseStore store(path);
+
+        const auto firstState =
+            KeygenSDK::LocalLicenseState{
+                .licenseId = "first-license-id",
+                .licenseKey = "FIRST-LICENSE-KEY",
+                .machineId = "first-machine-id",
+                .machineFingerprint = "first-fingerprint"
+        };
+
+        const auto secondState =
+            KeygenSDK::LocalLicenseState{
+                .licenseId = "second-license-id",
+                .licenseKey = "SECOND-LICENSE-KEY",
+                .machineId = "second-machine-id",
+                .machineFingerprint = "second-fingerprint"
+        };
+
+        const auto firstSaveResult =
+            store.save(firstState);
+
+        assert(firstSaveResult.ok);
+        assert(std::filesystem::exists(path));
+
+        const auto secondSaveResult =
+            store.save(secondState);
+
+        assert(secondSaveResult.ok);
+        assert(std::filesystem::exists(path));
+
+        KeygenSDK::LocalLicenseState actual;
+
+        const auto loadResult =
+            store.load(actual);
+
+        assert(loadResult.ok);
+
+        assert(
+            actual.licenseId ==
+            secondState.licenseId);
+
+        assert(
+            actual.licenseKey ==
+            secondState.licenseKey);
+
+        assert(
+            actual.machineId ==
+            secondState.machineId);
+
+        assert(
+            actual.machineFingerprint ==
+            secondState.machineFingerprint);
+
+        std::filesystem::remove(path, error);
+    }
+
+    void testFileLocalLicenseStoreDoesNotLeaveTemporaryFile() {
+        const auto path =
+            makeTestPath(
+                "keygensdk-test-no-temporary-file.dat");
+
+        std::error_code error;
+        std::filesystem::remove(path, error);
+
+        KeygenSDK::FileLocalLicenseStore store(path);
+
+        const auto result =
+            store.save(makeTestState());
+
+        assert(result.ok);
+        assert(std::filesystem::exists(path));
+
+        const auto parentPath =
+            path.parent_path();
+
+        bool foundTemporaryFile = false;
+
+        for (const auto& entry :
+            std::filesystem::directory_iterator(parentPath)) {
+
+            if (!entry.is_regular_file()) {
+                continue;
+            }
+
+            const auto filename =
+                entry.path().filename().wstring();
+
+            const auto targetFilename =
+                path.filename().wstring();
+
+            if (filename != targetFilename &&
+                filename.rfind(L"kgs", 0) == 0) {
+
+                foundTemporaryFile = true;
+                break;
+            }
+        }
+
+        assert(!foundTemporaryFile);
+
+        std::filesystem::remove(path, error);
+    }
+
     void testFileLocalLicenseStoreLoadMissingFile() {
         const auto path =
             makeTestPath("keygensdk-test-missing-license-state.json");

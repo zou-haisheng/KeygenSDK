@@ -2,12 +2,88 @@
 #include "KeygenSDK/LocalLicenseSerialization.h"
 #include "KeygenSDK/LocalDataProtection.h"
 
+#include <windows.h>
+
 #include <fstream>
 #include <sstream>
 #include <system_error>
 #include <utility>
 
 namespace KeygenSDK {
+
+    namespace {
+
+        Result createTemporaryFilePath(
+            const std::filesystem::path& targetPath,
+            std::filesystem::path& temporaryPath) {
+
+            const auto parentPath =
+                targetPath.parent_path().empty()
+                ? std::filesystem::current_path()
+                : targetPath.parent_path();
+
+            if (!std::filesystem::exists(parentPath)) {
+                return Result::failure(
+                    ErrorCode::LocalStorageError,
+                    "Local license state directory does not exist.");
+            }
+
+            wchar_t temporaryFileName[MAX_PATH]{};
+
+            const auto result =
+                GetTempFileNameW(
+                    parentPath.wstring().c_str(),
+                    L"kgs",
+                    0,
+                    temporaryFileName);
+
+            if (result == 0) {
+                return Result::failure(
+                    ErrorCode::LocalStorageError,
+                    "Failed to create temporary local license state file.");
+            }
+
+            temporaryPath =
+                std::filesystem::path(temporaryFileName);
+
+            return Result::successResult();
+        }
+
+        Result replaceFile(
+            const std::filesystem::path& temporaryPath,
+            const std::filesystem::path& targetPath) {
+
+            const BOOL result =
+                MoveFileExW(
+                    temporaryPath.wstring().c_str(),
+                    targetPath.wstring().c_str(),
+                    MOVEFILE_REPLACE_EXISTING |
+                    MOVEFILE_WRITE_THROUGH);
+
+            if (!result) {
+                return Result::failure(
+                    ErrorCode::LocalStorageError,
+                    "Failed to replace local license state file.");
+            }
+
+            return Result::successResult();
+        }
+
+        void removeTemporaryFile(
+            const std::filesystem::path& path) {
+
+            if (path.empty()) {
+                return;
+            }
+
+            std::error_code error;
+
+            std::filesystem::remove(
+                path,
+                error);
+        }
+
+    } // namespace
 
     FileLocalLicenseStore::FileLocalLicenseStore(
         std::filesystem::path path)
@@ -121,34 +197,68 @@ namespace KeygenSDK {
             }
         }
 
-        std::ofstream file(
-            path_,
-            std::ios::binary |
-            std::ios::trunc);
+        std::filesystem::path temporaryPath;
 
-        if (!file.is_open()) {
-            return Result::failure(
-                ErrorCode::LocalStorageError,
-                "Failed to open local license state file for writing.");
+        const auto temporaryPathResult =
+            createTemporaryFilePath(
+                path_,
+                temporaryPath);
+
+        if (!temporaryPathResult.ok) {
+            return temporaryPathResult;
         }
 
-        file.write(
-            protectedData.data(),
-            static_cast<std::streamsize>(
-                protectedData.size()));
+        {
+            std::ofstream file(
+                temporaryPath,
+                std::ios::binary |
+                std::ios::trunc);
 
-        if (!file.good()) {
-            return Result::failure(
-                ErrorCode::LocalStorageError,
-                "Failed to write local license state file.");
+            if (!file.is_open()) {
+                removeTemporaryFile(
+                    temporaryPath);
+
+                return Result::failure(
+                    ErrorCode::LocalStorageError,
+                    "Failed to open temporary local license state file.");
+            }
+
+            file.write(
+                protectedData.data(),
+                static_cast<std::streamsize>(
+                    protectedData.size()));
+
+            if (!file.good()) {
+                removeTemporaryFile(
+                    temporaryPath);
+
+                return Result::failure(
+                    ErrorCode::LocalStorageError,
+                    "Failed to write temporary local license state file.");
+            }
+
+            file.flush();
+
+            if (!file.good()) {
+                removeTemporaryFile(
+                    temporaryPath);
+
+                return Result::failure(
+                    ErrorCode::LocalStorageError,
+                    "Failed to flush temporary local license state file.");
+            }
         }
 
-        file.flush();
+        const auto replaceResult =
+            replaceFile(
+                temporaryPath,
+                path_);
 
-        if (!file.good()) {
-            return Result::failure(
-                ErrorCode::LocalStorageError,
-                "Failed to flush local license state file.");
+        if (!replaceResult.ok) {
+            removeTemporaryFile(
+                temporaryPath);
+
+            return replaceResult;
         }
 
         return Result::successResult(
