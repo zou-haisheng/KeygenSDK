@@ -1238,6 +1238,128 @@ namespace {
             "Authorization: License TEST-LICENSE-KEY");
     }
 
+    void testDeactivateRemovesLocalLicenseState() {
+        FakeHttpClient http;
+
+        http.validationResponseBody = R"({
+        "meta": {
+            "valid": true,
+            "code": "VALID"
+        },
+        "data": {
+            "id": "test-license-id",
+            "type": "licenses"
+        }
+    })";
+
+        http.activationResponseBody = R"({
+        "data": {
+            "id": "test-machine-id",
+            "type": "machines",
+            "attributes": {
+                "fingerprint": "test-fingerprint"
+            }
+        }
+    })";
+
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
+        auto* storePtr = store.get();
+
+        auto client =
+            KeygenSDK::ClientTestAccess::create(
+                testConfig(),
+                http,
+                std::move(store));
+
+        const auto activation =
+            client.activate("TEST-LICENSE-KEY");
+
+        assert(activation.ok);
+        assert(client.hasLocalLicense());
+        assert(storePtr->saveCallCount == 1);
+
+        http.deleteStatusCode = 204;
+
+        const auto result =
+            client.deactivate();
+
+        assert(result.ok);
+        assert(result.error == KeygenSDK::ErrorCode::None);
+
+        assert(storePtr->removeCallCount == 1);
+        assert(!client.hasLocalLicense());
+    }
+
+    void testDeactivateFailsWhenLocalLicenseRemoveFails() {
+        FakeHttpClient http;
+
+        http.validationResponseBody = R"({
+        "meta": {
+            "valid": true,
+            "code": "VALID"
+        },
+        "data": {
+            "id": "test-license-id",
+            "type": "licenses"
+        }
+    })";
+
+        http.activationResponseBody = R"({
+        "data": {
+            "id": "test-machine-id",
+            "type": "machines",
+            "attributes": {
+                "fingerprint": "test-fingerprint"
+            }
+        }
+    })";
+
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
+        store->removeResult =
+            KeygenSDK::Result::failure(
+                KeygenSDK::ErrorCode::LocalStorageError,
+                "simulated local remove failure");
+
+        auto* storePtr = store.get();
+
+        auto client =
+            KeygenSDK::ClientTestAccess::create(
+                testConfig(),
+                http,
+                std::move(store));
+
+        const auto activation =
+            client.activate("TEST-LICENSE-KEY");
+
+        assert(activation.ok);
+        assert(client.hasLocalLicense());
+
+        http.deleteStatusCode = 204;
+
+        const auto result =
+            client.deactivate();
+
+        assert(!result.ok);
+
+        assert(
+            result.error ==
+            KeygenSDK::ErrorCode::LocalStorageError);
+
+        assert(
+            result.message ==
+            "simulated local remove failure");
+
+        assert(storePtr->removeCallCount == 1);
+
+        // Remote machine has already been deleted.
+        // Client must therefore no longer consider it active.
+        assert(!client.hasLocalLicense());
+    }
+
     void testLocalLicenseStateValid() {
         KeygenSDK::LocalLicenseState state{
             .licenseId = "test-license-id",
@@ -1589,6 +1711,8 @@ int main() {
     testDeactivateHttpFailureKeepsLocalLicense();
     testDeactivateInvalidResponseKeepsLocalLicense();
     testDeactivateSuccessClearsLocalLicense();
+    testDeactivateRemovesLocalLicenseState();
+    testDeactivateFailsWhenLocalLicenseRemoveFails();
     testLoadLocalLicenseMissingState();
     testLoadLocalLicenseStorageFailure();
 

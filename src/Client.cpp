@@ -714,13 +714,23 @@ namespace KeygenSDK {
         if (response.statusCode != 204) {
             return Result::failure(
                 ErrorCode::InvalidResponse,
-                "Unexpected machine deletion response.");
+                "Unexpected response status code");
         }
 
+        const auto removeResult = impl_->localStore_->remove();
+
+        // Remote deactivation has already succeeded.
+        // Therefore the in-memory state must be cleared regardless of
+        // whether removing the local persisted state succeeds.
         impl_->machineId.clear();
         impl_->licenseKey.clear();
+        impl_->licenseId.clear();
+        impl_->machineFingerprint.clear();
         impl_->hasLocalLicense = false;
 
+        if (!removeResult.ok) {
+            return removeResult;
+        }
         return Result::successResult(
             "Machine deactivation succeeded.");
     }
