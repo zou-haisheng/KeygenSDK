@@ -172,6 +172,68 @@ namespace {
         };
     }
 
+    class FakeLocalLicenseStore final
+        : public KeygenSDK::ILocalLicenseStore {
+
+    public:
+        KeygenSDK::Result load(
+            KeygenSDK::LocalLicenseState& state) const override {
+
+            ++loadCallCount;
+
+            if (!loadResult.ok) {
+                return loadResult;
+            }
+
+            state = storedState;
+            return KeygenSDK::Result::successResult(
+                "fake load");
+        }
+
+        KeygenSDK::Result save(
+            const KeygenSDK::LocalLicenseState& state) override {
+
+            ++saveCallCount;
+
+            if (!saveResult.ok) {
+                return saveResult;
+            }
+
+            storedState = state;
+
+            return KeygenSDK::Result::successResult(
+                "fake save");
+        }
+
+        KeygenSDK::Result remove() override {
+
+            ++removeCallCount;
+
+            if (!removeResult.ok) {
+                return removeResult;
+            }
+
+            storedState = {};
+            return KeygenSDK::Result::successResult(
+                "fake remove");
+        }
+
+        mutable int loadCallCount{ 0 };
+        int saveCallCount{ 0 };
+        int removeCallCount{ 0 };
+
+        mutable KeygenSDK::LocalLicenseState storedState;
+
+        mutable KeygenSDK::Result loadResult =
+            KeygenSDK::Result::successResult();
+
+        KeygenSDK::Result saveResult =
+            KeygenSDK::Result::successResult();
+
+        KeygenSDK::Result removeResult =
+            KeygenSDK::Result::successResult();
+    };
+
     void testValidLicense() {
         FakeHttpClient http;
 
@@ -544,23 +606,16 @@ namespace {
         }
     })";
 
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
         auto client =
             KeygenSDK::ClientTestAccess::create(
                 testConfig(),
-                http);
+                http,
+                std::move(store));
         const auto result =
             client.activate("TEST-LICENSE-KEY");
-        // 测试代码
-        if (!result.ok) {
-            std::cerr
-                << "Activation failed. error="
-                << static_cast<int>(result.error)
-                << ", message="
-                << result.message
-                << ", postCallCount="
-                << http.postCallCount
-                << std::endl;
-        }
 
         assert(result.ok);
         assert(result.error == KeygenSDK::ErrorCode::None);
@@ -889,31 +944,35 @@ namespace {
     void testActivationSetsLocalLicenseState() {
         FakeHttpClient http;
 
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
         http.validationResponseBody = R"({
-        "meta": {
-            "valid": true,
-            "code": "VALID"
-        },
-        "data": {
-            "id": "test-license-id",
-            "type": "licenses"
-        }
-    })";
+            "meta": {
+                "valid": true,
+                "code": "VALID"
+            },
+            "data": {
+                "id": "test-license-id",
+                "type": "licenses"
+            }
+        })";
 
         http.activationResponseBody = R"({
-        "data": {
-            "id": "test-machine-id",
-            "type": "machines",
-            "attributes": {
-                "fingerprint": "test-fingerprint"
+            "data": {
+                "id": "test-machine-id",
+                "type": "machines",
+                "attributes": {
+                    "fingerprint": "test-fingerprint"
+                }
             }
-        }
-    })";
+        })";
 
         auto client =
             KeygenSDK::ClientTestAccess::create(
                 testConfig(),
-                http);
+                http,
+                std::move(store));
 
         assert(!client.hasLocalLicense());
 
@@ -992,6 +1051,9 @@ namespace {
     void testDeactivateHttpFailureKeepsLocalLicense() {
         FakeHttpClient http;
 
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
         http.validationResponseBody = R"({
         "meta": {
             "valid": true,
@@ -1016,7 +1078,8 @@ namespace {
         auto client =
             KeygenSDK::ClientTestAccess::create(
                 testConfig(),
-                http);
+                http,
+                std::move(store));
 
         const auto activation =
             client.activate("TEST-LICENSE-KEY");
@@ -1060,6 +1123,9 @@ namespace {
     void testDeactivateInvalidResponseKeepsLocalLicense() {
         FakeHttpClient http;
 
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
         http.validationResponseBody = R"({
         "meta": {
             "valid": true,
@@ -1084,7 +1150,8 @@ namespace {
         auto client =
             KeygenSDK::ClientTestAccess::create(
                 testConfig(),
-                http);
+                http,
+                std::move(store));
 
         const auto activation =
             client.activate("TEST-LICENSE-KEY");
@@ -1110,31 +1177,35 @@ namespace {
     void testDeactivateSuccessClearsLocalLicense() {
         FakeHttpClient http;
 
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
         http.validationResponseBody = R"({
-        "meta": {
-            "valid": true,
-            "code": "VALID"
-        },
-        "data": {
-            "id": "test-license-id",
-            "type": "licenses"
-        }
-    })";
+            "meta": {
+                "valid": true,
+                "code": "VALID"
+            },
+            "data": {
+                "id": "test-license-id",
+                "type": "licenses"
+            }
+        })";
 
         http.activationResponseBody = R"({
-        "data": {
-            "id": "test-machine-id",
-            "type": "machines",
-            "attributes": {
-                "fingerprint": "test-fingerprint"
+            "data": {
+                "id": "test-machine-id",
+                "type": "machines",
+                "attributes": {
+                    "fingerprint": "test-fingerprint"
+                }
             }
-        }
-    })";
+        })";
 
         auto client =
             KeygenSDK::ClientTestAccess::create(
                 testConfig(),
-                http);
+                http,
+                std::move(store));
 
         const auto activation =
             client.activate("TEST-LICENSE-KEY");
@@ -1240,67 +1311,128 @@ namespace {
         }
     }
 
-    class FakeLocalLicenseStore final
-        : public KeygenSDK::ILocalLicenseStore {
+    void testActivationSavesLocalLicenseState() {
 
-        public:
-            KeygenSDK::Result load(
-                KeygenSDK::LocalLicenseState& state) const override {
+        FakeHttpClient http;
 
-                ++loadCallCount;
+        http.validationResponseBody = R"({
+        "meta": {
+            "valid": true,
+            "code": "VALID"
+        },
+        "data": {
+            "id": "test-license-id",
+            "type": "licenses"
+        }
+    })";
 
-                if (!loadResult.ok) {
-                    return loadResult;
-                }
-
-                state = storedState;
-                return KeygenSDK::Result::successResult(
-                    "fake load");
+        http.activationResponseBody = R"({
+        "data": {
+            "id": "test-machine-id",
+            "type": "machines",
+            "attributes": {
+                "fingerprint": "test-fingerprint"
             }
+        }
+    })";
 
-            KeygenSDK::Result save(
-                const KeygenSDK::LocalLicenseState& state) override {
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
 
-                ++saveCallCount;
+        auto* storePtr = store.get();
 
-                if (!saveResult.ok) {
-                    return saveResult;
-                }
+        auto client =
+            KeygenSDK::ClientTestAccess::create(
+                testConfig(),
+                http,
+                std::move(store));
 
-                storedState = state;
+        const auto result =
+            client.activate("TEST-LICENSE-KEY");
 
-                return KeygenSDK::Result::successResult(
-                    "fake save");
+        assert(result.ok);
+
+        assert(storePtr->saveCallCount == 1);
+
+        assert(
+            storePtr->storedState.licenseId ==
+            "test-license-id");
+
+        assert(
+            storePtr->storedState.licenseKey ==
+            "TEST-LICENSE-KEY");
+
+        assert(
+            storePtr->storedState.machineId ==
+            "test-machine-id");
+
+        assert(
+            !storePtr->storedState.machineFingerprint.empty());
+
+        assert(
+            storePtr->storedState.isValid());
+
+        assert(client.hasLocalLicense());
+    }
+
+    void testActivationFailsWhenLocalLicenseSaveFails() {
+
+        FakeHttpClient http;
+
+        http.validationResponseBody = R"({
+        "meta": {
+            "valid": true,
+            "code": "VALID"
+        },
+        "data": {
+            "id": "test-license-id",
+            "type": "licenses"
+        }
+    })";
+
+        http.activationResponseBody = R"({
+        "data": {
+            "id": "test-machine-id",
+            "type": "machines",
+            "attributes": {
+                "fingerprint": "test-fingerprint"
             }
+        }
+    })";
 
-            KeygenSDK::Result remove() override {
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
 
-                ++removeCallCount;
+        store->saveResult =
+            KeygenSDK::Result::failure(
+                KeygenSDK::ErrorCode::LocalStorageError,
+                "simulated local save failure");
 
-                if (!removeResult.ok) {
-                    return removeResult;
-                }
+        auto* storePtr = store.get();
 
-                storedState = {};
-                return KeygenSDK::Result::successResult(
-                    "fake remove");
-            }
+        auto client =
+            KeygenSDK::ClientTestAccess::create(
+                testConfig(),
+                http,
+                std::move(store));
 
-            mutable int loadCallCount{ 0 };
-            int saveCallCount{ 0 };
-            int removeCallCount{ 0 };
+        const auto result =
+            client.activate("TEST-LICENSE-KEY");
 
-            mutable KeygenSDK::LocalLicenseState storedState;
+        assert(!result.ok);
 
-            mutable KeygenSDK::Result loadResult =
-                KeygenSDK::Result::successResult();
+        assert(
+            result.error ==
+            KeygenSDK::ErrorCode::LocalStorageError);
 
-            KeygenSDK::Result saveResult =
-                KeygenSDK::Result::successResult();
+        assert(
+            result.message ==
+            "simulated local save failure");
 
-            KeygenSDK::Result removeResult =
-                KeygenSDK::Result::successResult();
-    };
+        assert(storePtr->saveCallCount == 1);
+
+        assert(!client.hasLocalLicense());
+    }
 
     void testLoadLocalLicenseMissingState() {
 
@@ -1441,6 +1573,8 @@ int main() {
     testLocalLicenseStateMissingMachineId();
     testLocalLicenseStateMissingMachineFingerprint();
     testActivationSuccess();
+    testActivationSavesLocalLicenseState();
+    testActivationFailsWhenLocalLicenseSaveFails();
     testActivationStopsWhenLicenseIsInvalid();
     testActivationHttpFailure();
     testActivationServerError();
@@ -1455,6 +1589,8 @@ int main() {
     testDeactivateHttpFailureKeepsLocalLicense();
     testDeactivateInvalidResponseKeepsLocalLicense();
     testDeactivateSuccessClearsLocalLicense();
+    testLoadLocalLicenseMissingState();
+    testLoadLocalLicenseStorageFailure();
 
     KeygenSDKTests::testLocalLicenseStoreSaveAndLoad();
     KeygenSDKTests::testLocalLicenseStoreLoadMissingState();

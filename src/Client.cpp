@@ -632,8 +632,36 @@ namespace KeygenSDK {
             return activation.result;
         }
 
-        impl_->machineId = activation.machineId;
-        impl_->licenseKey = licenseKey;
+        const LocalLicenseState localState =
+            makeLocalLicenseState(
+                validation.licenseId,
+                licenseKey,
+                activation.machineId,
+                fingerprint);
+
+        if (!localState.isValid()) {
+            return Result::failure(
+                ErrorCode::LocalStorageError,
+                "Failed to create valid local license state.");
+        }
+
+        if (!impl_->localStore_) {
+            return Result::failure(
+                ErrorCode::InvalidConfiguration,
+                "Local license store is not configured.");
+        }
+
+        const Result saveResult =
+            impl_->localStore_->save(localState);
+
+        if (!saveResult.ok) {
+            return saveResult;
+        }
+
+        impl_->licenseId = localState.licenseId;
+        impl_->licenseKey = localState.licenseKey;
+        impl_->machineId = localState.machineId;
+        impl_->machineFingerprint = localState.machineFingerprint;
         impl_->hasLocalLicense = true;
 
         return activation.result;
