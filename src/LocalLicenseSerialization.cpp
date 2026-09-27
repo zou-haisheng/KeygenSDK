@@ -7,7 +7,8 @@ namespace KeygenSDK {
 
     namespace {
 
-        constexpr int kCurrentVersion = 1;
+        constexpr int kLegacyVersion = 1;
+        constexpr int kCurrentVersion = 2;
 
     } // namespace
 
@@ -22,8 +23,22 @@ namespace KeygenSDK {
         }
 
         try {
+            const int version =
+                state.machineFile.empty()
+                ? kLegacyVersion
+                : kCurrentVersion;
+
+            nlohmann::json machine = {
+                {"id", state.machineId},
+                {"fingerprint", state.machineFingerprint}
+            };
+
+            if (version == kCurrentVersion) {
+                machine["file"] = state.machineFile;
+            }
+
             const nlohmann::json json = {
-                {"version", kCurrentVersion},
+                {"version", version},
                 {
                     "license",
                     {
@@ -31,13 +46,7 @@ namespace KeygenSDK {
                         {"key", state.licenseKey}
                     }
                 },
-                {
-                    "machine",
-                    {
-                        {"id", state.machineId},
-                        {"fingerprint", state.machineFingerprint}
-                    }
-                }
+                {"machine", std::move(machine)}
             };
 
             output = json.dump();
@@ -77,7 +86,9 @@ namespace KeygenSDK {
             const int version =
                 json["version"].get<int>();
 
-            if (version != kCurrentVersion) {
+            if (version != kLegacyVersion &&
+                version != kCurrentVersion) {
+
                 return Result::failure(
                     ErrorCode::InvalidResponse,
                     "Unsupported local license state version.");
@@ -138,8 +149,28 @@ namespace KeygenSDK {
                 .licenseId = license["id"].get<std::string>(),
                 .licenseKey = license["key"].get<std::string>(),
                 .machineId = machine["id"].get<std::string>(),
-                .machineFingerprint = machine["fingerprint"].get<std::string>()
+                .machineFingerprint = machine["fingerprint"],
+                .machineFile = {}
             };
+
+            if (version == kCurrentVersion) {
+                if (!machine.contains("file") ||
+                    !machine["file"].is_string()) {
+
+                    return Result::failure(
+                        ErrorCode::InvalidResponse,
+                        "Local license state is missing machine file.");
+                }
+
+                parsedState.machineFile =
+                    machine["file"].get<std::string>();
+
+                if (parsedState.machineFile.empty()) {
+                    return Result::failure(
+                        ErrorCode::InvalidResponse,
+                        "Local license state contains an empty machine file.");
+                }
+            }
 
             if (!parsedState.isValid()) {
                 return Result::failure(

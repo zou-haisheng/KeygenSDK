@@ -9,6 +9,7 @@ namespace KeygenSDK {
         std::string licenseKey;
         std::string machineId;
         std::string machineFingerprint;
+        std::string machineFile;
 
         [[nodiscard]] bool isValid() const noexcept {
             return !licenseId.empty() &&

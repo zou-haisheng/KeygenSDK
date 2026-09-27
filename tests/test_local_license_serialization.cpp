@@ -12,7 +12,8 @@ namespace KeygenSDKTests {
                 .licenseId = "test-license-id",
                 .licenseKey = "TEST-LICENSE-KEY",
                 .machineId = "test-machine-id",
-                .machineFingerprint = "test-fingerprint"
+                .machineFingerprint = "test-fingerprint",
+                .machineFile = "-----BEGIN MACHINE FILE-----\ntest-machine-file\n-----END MACHINE FILE-----"
             };
         }
 
@@ -257,6 +258,57 @@ namespace KeygenSDKTests {
         assert(state.licenseKey == "TEST-LICENSE-KEY");
         assert(state.machineId == "test-machine-id");
         assert(state.machineFingerprint == "test-fingerprint");
+    }
+
+    void testLocalLicenseSerializationPreservesMachineFile() {
+        const auto original = makeTestState();
+
+        std::string json;
+
+        const auto serializeResult =
+            KeygenSDK::LocalLicenseSerializer::serialize(
+                original,
+                json);
+
+        assert(serializeResult.ok);
+
+        KeygenSDK::LocalLicenseState restored;
+
+        const auto deserializeResult =
+            KeygenSDK::LocalLicenseSerializer::deserialize(
+                json,
+                restored);
+
+        assert(deserializeResult.ok);
+        assert(restored.machineFile == original.machineFile);
+    }
+
+    void testLocalLicenseDeserializationAcceptsVersion1() {
+        const std::string json = R"({
+        "version": 1,
+        "license": {
+            "id": "test-license-id",
+            "key": "TEST-LICENSE-KEY"
+        },
+        "machine": {
+            "id": "test-machine-id",
+            "fingerprint": "test-fingerprint"
+        }
+    })";
+
+        KeygenSDK::LocalLicenseState state;
+
+        const auto result =
+            KeygenSDK::LocalLicenseSerializer::deserialize(
+                json,
+                state);
+
+        assert(result.ok);
+        assert(state.licenseId == "test-license-id");
+        assert(state.licenseKey == "TEST-LICENSE-KEY");
+        assert(state.machineId == "test-machine-id");
+        assert(state.machineFingerprint == "test-fingerprint");
+        assert(state.machineFile.empty());
     }
 
 } // namespace KeygenSDKTests

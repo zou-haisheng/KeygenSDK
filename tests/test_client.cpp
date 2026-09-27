@@ -55,6 +55,8 @@ namespace KeygenSDKTests {
     void testLocalLicenseDeserializationRejectsInvalidFieldType();
     void testLocalLicenseDeserializationRejectsEmptyRequiredField();
     void testLocalLicenseDeserializationAllowsUnknownFields();
+    void testLocalLicenseSerializationPreservesMachineFile();
+    void testLocalLicenseDeserializationAcceptsVersion1();
 
     void testFileLocalLicenseStoreSaveAndLoad();
     void testFileLocalLicenseStoreAtomicReplacement();
@@ -1951,6 +1953,8 @@ int main() {
     KeygenSDKTests::testLocalLicenseDeserializationRejectsInvalidFieldType();
     KeygenSDKTests::testLocalLicenseDeserializationRejectsEmptyRequiredField();
     KeygenSDKTests::testLocalLicenseDeserializationAllowsUnknownFields();
+    KeygenSDKTests::testLocalLicenseSerializationPreservesMachineFile();
+    KeygenSDKTests::testLocalLicenseDeserializationAcceptsVersion1();
 
     KeygenSDKTests::testFileLocalLicenseStoreSaveAndLoad();
     KeygenSDKTests::testFileLocalLicenseStoreAtomicReplacement();
