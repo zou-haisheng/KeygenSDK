@@ -441,6 +441,148 @@ namespace KeygenSDK {
             }
         }
 
+        struct MachineFileCheckoutResult {
+            Result result;
+            std::string machineFile;
+        };
+
+        MachineFileCheckoutResult checkoutMachineFile(
+            IHttpClient& httpClient,
+            const Config& config,
+            const std::string& licenseKey,
+            const std::string& machineId) {
+
+            const auto host = normalizeHost(config.host);
+
+            const std::string url =
+                host +
+                "/v1/accounts/" +
+                config.accountId +
+                "/machines/" +
+                machineId +
+                "/actions/check-out"
+                "?algorithm=aes-256-gcm%2Bed25519";
+
+            HttpResponse response;
+
+            const HttpHeaders headers{
+                "Authorization: License " + licenseKey,
+                "Accept: application/vnd.api+json"
+            };
+
+            const Result httpResult =
+                httpClient.post(
+                    url,
+                    "",
+                    response,
+                    headers);
+
+            if (!httpResult.ok) {
+                return { httpResult, {} };
+            }
+
+            if (response.statusCode >= 500) {
+                return {
+                    Result::failure(
+                        ErrorCode::ServerError,
+                        "Keygen server returned a server error."),
+                    {}
+                };
+            }
+
+            if (response.statusCode < 200 ||
+                response.statusCode >= 300) {
+
+                return {
+                    Result::failure(
+                        ErrorCode::ActivationFailed,
+                        "Keygen machine checkout request failed."),
+                    {}
+                };
+            }
+
+            try {
+                const auto json =
+                    nlohmann::json::parse(response.body);
+
+                if (!json.contains("data") ||
+                    !json["data"].is_object()) {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen machine checkout response is missing data."),
+                        {}
+                    };
+                }
+
+                const auto& data = json["data"];
+
+                if (!data.contains("type") ||
+                    !data["type"].is_string() ||
+                    data["type"].get<std::string>() != "machine-files") {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen machine checkout response has an invalid type."),
+                        {}
+                    };
+                }
+
+                if (!data.contains("attributes") ||
+                    !data["attributes"].is_object()) {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen machine checkout response is missing attributes."),
+                        {}
+                    };
+                }
+
+                const auto& attributes =
+                    data["attributes"];
+
+                if (!attributes.contains("certificate") ||
+                    !attributes["certificate"].is_string()) {
+
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen machine checkout response is missing certificate."),
+                        {}
+                    };
+                }
+
+                const std::string machineFile =
+                    attributes["certificate"].get<std::string>();
+
+                if (machineFile.empty()) {
+                    return {
+                        Result::failure(
+                            ErrorCode::InvalidResponse,
+                            "Keygen machine checkout returned an empty certificate."),
+                        {}
+                    };
+                }
+
+                return {
+                    Result::successResult(
+                        "Machine file checkout succeeded."),
+                    machineFile
+                };
+            }
+            catch (const nlohmann::json::exception&) {
+                return {
+                    Result::failure(
+                        ErrorCode::InvalidResponse,
+                        "Keygen server returned invalid JSON."),
+                    {}
+                };
+            }
+        }
+
         LocalLicenseState makeLocalLicenseState(
             const std::string& licenseId,
             const std::string& licenseKey,
