@@ -100,10 +100,15 @@ namespace {
                 response.body = validationResponseBody;
                 return validationResult;
             }
-            else if (postCallCount >= 2 && !activationResponseBody.empty()) {
+            else if (postCallCount == 2 && !activationResponseBody.empty()) {
                 response.statusCode = activationStatusCode;
                 response.body = activationResponseBody;
                 return activationResult;
+            }
+            else if (postCallCount == 3 && !checkoutResponseBody.empty()) {
+                response.statusCode = checkoutStatusCode;
+                response.body = checkoutResponseBody;
+                return checkoutResult;
             }
             else {
                 response.statusCode = statusCode;
@@ -150,10 +155,12 @@ namespace {
 
         long validationStatusCode{ 200 };
         long activationStatusCode{ 201 };
+        long checkoutStatusCode{ 200 };
         long deleteStatusCode{ 204 };
-        
+
         std::string validationResponseBody;
         std::string activationResponseBody;
+        std::string checkoutResponseBody;
         std::string deleteResponseBody;
         
         KeygenSDK::Result result =
@@ -165,7 +172,11 @@ namespace {
         KeygenSDK::Result activationResult =
             KeygenSDK::Result::successResult();
 
-        KeygenSDK::Result deleteResult = KeygenSDK::Result::successResult();
+        KeygenSDK::Result checkoutResult =
+            KeygenSDK::Result::successResult();
+
+        KeygenSDK::Result deleteResult =
+            KeygenSDK::Result::successResult();
     };
 
     KeygenSDK::Config testConfig() {
