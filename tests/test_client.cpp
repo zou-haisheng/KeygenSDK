@@ -10,6 +10,7 @@
 #include <utility>
 #include <nlohmann/json.hpp>
 #include <memory>
+#include <vector>
 
 namespace KeygenSDK {
 
@@ -79,104 +80,113 @@ namespace KeygenSDKTests {
 namespace {
 
     class FakeHttpClient final : public KeygenSDK::IHttpClient {
-    public:
-        KeygenSDK::Result post(
-            std::string_view url,
-            std::string_view body,
-            KeygenSDK::HttpResponse& response,
-            const KeygenSDK::HttpHeaders& headers) const override {
+        public:
+            KeygenSDK::Result post(
+                std::string_view url,
+                std::string_view body,
+                KeygenSDK::HttpResponse& response,
+                const KeygenSDK::HttpHeaders& headers) const override {
 
-            ++postCallCount;
+                ++postCallCount;
 
-            lastUrl = std::string(url);
-            lastBody = std::string(body);
-            lastHeaders = headers;
+                lastUrl = std::string(url);
+                lastBody = std::string(body);
+                lastHeaders = headers;
 
-            response.statusCode = statusCode;
-            response.body = responseBody;
+                postUrls.emplace_back(url);
+                postBodies.emplace_back(body);
+                postHeaders.push_back(headers);
 
-            if (postCallCount == 1 && !validationResponseBody.empty()) {
-                response.statusCode = validationStatusCode;
-                response.body = validationResponseBody;
-                return validationResult;
-            }
-            else if (postCallCount == 2 && !activationResponseBody.empty()) {
-                response.statusCode = activationStatusCode;
-                response.body = activationResponseBody;
-                return activationResult;
-            }
-            else if (postCallCount == 3 && !checkoutResponseBody.empty()) {
-                response.statusCode = checkoutStatusCode;
-                response.body = checkoutResponseBody;
-                return checkoutResult;
-            }
-            else {
                 response.statusCode = statusCode;
                 response.body = responseBody;
-                return result;
+
+                if (postCallCount == 1 && !validationResponseBody.empty()) {
+                    response.statusCode = validationStatusCode;
+                    response.body = validationResponseBody;
+                    return validationResult;
+                }
+                else if (postCallCount == 2 && !activationResponseBody.empty()) {
+                    response.statusCode = activationStatusCode;
+                    response.body = activationResponseBody;
+                    return activationResult;
+                }
+                else if (postCallCount == 3 && !checkoutResponseBody.empty()) {
+                    response.statusCode = checkoutStatusCode;
+                    response.body = checkoutResponseBody;
+                    return checkoutResult;
+                }
+                else {
+                    response.statusCode = statusCode;
+                    response.body = responseBody;
+                    return result;
+                }
             }
-        }
 
-        KeygenSDK::Result get(
-            std::string_view,
-            KeygenSDK::HttpResponse&) const override {
+            KeygenSDK::Result get(
+                std::string_view,
+                KeygenSDK::HttpResponse&) const override {
 
-            return KeygenSDK::Result::failure(
-                KeygenSDK::ErrorCode::Unknown,
-                "Fake GET is not implemented.");
-        }
+                return KeygenSDK::Result::failure(
+                    KeygenSDK::ErrorCode::Unknown,
+                    "Fake GET is not implemented.");
+            }
 
-        KeygenSDK::Result deleteResource(
-            std::string_view url,
-            KeygenSDK::HttpResponse& response,
-            const KeygenSDK::HttpHeaders& headers = {}) const override {
+            KeygenSDK::Result deleteResource(
+                std::string_view url,
+                KeygenSDK::HttpResponse& response,
+                const KeygenSDK::HttpHeaders& headers = {}) const override {
 
-            lastDeleteUrl = std::string(url);
-            lastDeleteHeaders = headers;
-            ++deleteCallCount;
+                lastDeleteUrl = std::string(url);
+                lastDeleteHeaders = headers;
+                ++deleteCallCount;
 
-            response.statusCode = deleteStatusCode;
-            response.body = deleteResponseBody;
+                response.statusCode = deleteStatusCode;
+                response.body = deleteResponseBody;
 
-            return deleteResult;
-        }
+                return deleteResult;
+            }
 
-        mutable std::string lastUrl;
-        mutable std::string lastBody;
-        mutable KeygenSDK::HttpHeaders lastHeaders;
-        mutable int postCallCount{ 0 };
-        mutable int deleteCallCount{ 0 };
-        mutable std::string lastDeleteUrl;
-        mutable KeygenSDK::HttpHeaders lastDeleteHeaders;
+            mutable std::string lastUrl;
+            mutable std::string lastBody;
+            mutable KeygenSDK::HttpHeaders lastHeaders;
 
-        long statusCode{ 200 };
+            mutable std::vector<std::string> postUrls;
+            mutable std::vector<std::string> postBodies;
+            mutable std::vector<KeygenSDK::HttpHeaders> postHeaders;
 
-        std::string responseBody;
+            mutable int postCallCount{ 0 };
+            mutable int deleteCallCount{ 0 };
+            mutable std::string lastDeleteUrl;
+            mutable KeygenSDK::HttpHeaders lastDeleteHeaders;
 
-        long validationStatusCode{ 200 };
-        long activationStatusCode{ 201 };
-        long checkoutStatusCode{ 200 };
-        long deleteStatusCode{ 204 };
+            long statusCode{ 200 };
 
-        std::string validationResponseBody;
-        std::string activationResponseBody;
-        std::string checkoutResponseBody;
-        std::string deleteResponseBody;
+            std::string responseBody;
+
+            long validationStatusCode{ 200 };
+            long activationStatusCode{ 201 };
+            long checkoutStatusCode{ 200 };
+            long deleteStatusCode{ 204 };
+
+            std::string validationResponseBody;
+            std::string activationResponseBody;
+            std::string checkoutResponseBody;
+            std::string deleteResponseBody;
         
-        KeygenSDK::Result result =
-            KeygenSDK::Result::successResult();
+            KeygenSDK::Result result =
+                KeygenSDK::Result::successResult();
 
-        KeygenSDK::Result validationResult =
-            KeygenSDK::Result::successResult();
+            KeygenSDK::Result validationResult =
+                KeygenSDK::Result::successResult();
 
-        KeygenSDK::Result activationResult =
-            KeygenSDK::Result::successResult();
+            KeygenSDK::Result activationResult =
+                KeygenSDK::Result::successResult();
 
-        KeygenSDK::Result checkoutResult =
-            KeygenSDK::Result::successResult();
+            KeygenSDK::Result checkoutResult =
+                KeygenSDK::Result::successResult();
 
-        KeygenSDK::Result deleteResult =
-            KeygenSDK::Result::successResult();
+            KeygenSDK::Result deleteResult =
+                KeygenSDK::Result::successResult();
     };
 
     KeygenSDK::Config testConfig() {
@@ -601,15 +611,15 @@ namespace {
         FakeHttpClient http;
 
         http.validationResponseBody = R"({
-        "meta": {
-            "valid": true,
-            "code": "VALID"
-        },
-        "data": {
-            "id": "test-license-id",
-            "type": "licenses"
-        }
-    })";
+            "meta": {
+                "valid": true,
+                "code": "VALID"
+            },
+            "data": {
+                "id": "test-license-id",
+                "type": "licenses"
+            }
+        })";
 
         http.activationResponseBody = R"({
         "data": {
@@ -620,6 +630,15 @@ namespace {
             }
         }
     })";
+
+        http.checkoutResponseBody = R"({
+            "data": {
+                "type": "machine-files",
+                "attributes": {
+                    "certificate": "test-machine-file"
+                }
+            }
+        })";
 
         auto store =
             std::make_unique<FakeLocalLicenseStore>();
@@ -635,21 +654,21 @@ namespace {
         assert(result.ok);
         assert(result.error == KeygenSDK::ErrorCode::None);
 
-        assert(http.postCallCount == 2);
+        assert(http.postCallCount == 3);
 
         assert(
-            http.lastUrl ==
+            http.postUrls[1] ==
             "https://example.invalid/v1/accounts/test-account/machines");
 
         assert(
-            http.lastHeaders.size() == 1);
+            http.postHeaders[1].size() == 1);
 
         assert(
-            http.lastHeaders[0] ==
+            http.postHeaders[1][0] ==
             "Authorization: License TEST-LICENSE-KEY");
 
         const auto request =
-            nlohmann::json::parse(http.lastBody);
+            nlohmann::json::parse(http.postBodies[1]);
 
         assert(request.contains("data"));
         assert(request["data"].is_object());
@@ -686,8 +705,25 @@ namespace {
             license["id"] == "test-license-id");
 
         assert(
-            http.lastBody.find("TEST-LICENSE-KEY") ==
+            http.postBodies[1].find("TEST-LICENSE-KEY") ==
             std::string::npos);
+
+        assert(
+            http.postUrls[2] ==
+            "https://example.invalid/v1/accounts/test-account/machines/test-machine-id/actions/check-out?algorithm=aes-256-gcm%2Bed25519");
+
+        assert(
+            http.postHeaders[2].size() == 2);
+
+        assert(
+            http.postHeaders[2][0] ==
+            "Authorization: License TEST-LICENSE-KEY");
+
+        assert(
+            http.postHeaders[2][1] ==
+            "Accept: application/vnd.api+json");
+
+        assert(http.postBodies[2].empty());
     }
 
     void testActivationStopsWhenLicenseIsInvalid() {
@@ -983,6 +1019,15 @@ namespace {
             }
         })";
 
+        http.checkoutResponseBody = R"({
+            "data": {
+                "type": "machine-files",
+                "attributes": {
+                    "certificate": "test-machine-file"
+                }
+            }
+        })";
+
         auto client =
             KeygenSDK::ClientTestAccess::create(
                 testConfig(),
@@ -1070,25 +1115,34 @@ namespace {
             std::make_unique<FakeLocalLicenseStore>();
 
         http.validationResponseBody = R"({
-        "meta": {
-            "valid": true,
-            "code": "VALID"
-        },
-        "data": {
-            "id": "test-license-id",
-            "type": "licenses"
-        }
-    })";
+            "meta": {
+                "valid": true,
+                "code": "VALID"
+            },
+            "data": {
+                "id": "test-license-id",
+                "type": "licenses"
+            }
+        })";
 
         http.activationResponseBody = R"({
-        "data": {
-            "id": "test-machine-id",
-            "type": "machines",
-            "attributes": {
-                "fingerprint": "test-fingerprint"
+            "data": {
+                "id": "test-machine-id",
+                "type": "machines",
+                "attributes": {
+                    "fingerprint": "test-fingerprint"
+                }
             }
-        }
-    })";
+        })";
+
+        http.checkoutResponseBody = R"({
+            "data": {
+                "type": "machine-files",
+                "attributes": {
+                    "certificate": "test-machine-file"
+                }
+            }
+        })";
 
         auto client =
             KeygenSDK::ClientTestAccess::create(
@@ -1142,25 +1196,34 @@ namespace {
             std::make_unique<FakeLocalLicenseStore>();
 
         http.validationResponseBody = R"({
-        "meta": {
-            "valid": true,
-            "code": "VALID"
-        },
-        "data": {
-            "id": "test-license-id",
-            "type": "licenses"
-        }
-    })";
+            "meta": {
+                "valid": true,
+                "code": "VALID"
+            },
+            "data": {
+                "id": "test-license-id",
+                "type": "licenses"
+            }
+        })";
 
         http.activationResponseBody = R"({
-        "data": {
-            "id": "test-machine-id",
-            "type": "machines",
-            "attributes": {
-                "fingerprint": "test-fingerprint"
+            "data": {
+                "id": "test-machine-id",
+                "type": "machines",
+                "attributes": {
+                    "fingerprint": "test-fingerprint"
+                }
             }
-        }
-    })";
+        })";
+
+        http.checkoutResponseBody = R"({
+            "data": {
+                "type": "machine-files",
+                "attributes": {
+                    "certificate": "test-machine-file"
+                }
+            }
+        })";
 
         auto client =
             KeygenSDK::ClientTestAccess::create(
@@ -1216,6 +1279,15 @@ namespace {
             }
         })";
 
+        http.checkoutResponseBody = R"({
+            "data": {
+                "type": "machine-files",
+                "attributes": {
+                    "certificate": "test-machine-file"
+                }
+            }
+        })";
+
         auto client =
             KeygenSDK::ClientTestAccess::create(
                 testConfig(),
@@ -1257,25 +1329,34 @@ namespace {
         FakeHttpClient http;
 
         http.validationResponseBody = R"({
-        "meta": {
-            "valid": true,
-            "code": "VALID"
-        },
-        "data": {
-            "id": "test-license-id",
-            "type": "licenses"
-        }
-    })";
+            "meta": {
+                "valid": true,
+                "code": "VALID"
+            },
+            "data": {
+                "id": "test-license-id",
+                "type": "licenses"
+            }
+        })";
 
         http.activationResponseBody = R"({
-        "data": {
-            "id": "test-machine-id",
-            "type": "machines",
-            "attributes": {
-                "fingerprint": "test-fingerprint"
+            "data": {
+                "id": "test-machine-id",
+                "type": "machines",
+                "attributes": {
+                    "fingerprint": "test-fingerprint"
+                }
             }
-        }
-    })";
+        })";
+
+        http.checkoutResponseBody = R"({
+            "data": {
+                "type": "machine-files",
+                "attributes": {
+                    "certificate": "test-machine-file"
+                }
+            }
+        })";
 
         auto store =
             std::make_unique<FakeLocalLicenseStore>();
@@ -1311,25 +1392,34 @@ namespace {
         FakeHttpClient http;
 
         http.validationResponseBody = R"({
-        "meta": {
-            "valid": true,
-            "code": "VALID"
-        },
-        "data": {
-            "id": "test-license-id",
-            "type": "licenses"
-        }
-    })";
+            "meta": {
+                "valid": true,
+                "code": "VALID"
+            },
+            "data": {
+                "id": "test-license-id",
+                "type": "licenses"
+            }
+        })";
 
         http.activationResponseBody = R"({
-        "data": {
-            "id": "test-machine-id",
-            "type": "machines",
-            "attributes": {
-                "fingerprint": "test-fingerprint"
+            "data": {
+                "id": "test-machine-id",
+                "type": "machines",
+                "attributes": {
+                    "fingerprint": "test-fingerprint"
+                }
             }
-        }
-    })";
+        })";
+
+        http.checkoutResponseBody = R"({
+            "data": {
+                "type": "machine-files",
+                "attributes": {
+                    "certificate": "test-machine-file"
+                }
+            }
+        })";
 
         auto store =
             std::make_unique<FakeLocalLicenseStore>();
@@ -1453,25 +1543,34 @@ namespace {
         FakeHttpClient http;
 
         http.validationResponseBody = R"({
-        "meta": {
-            "valid": true,
-            "code": "VALID"
-        },
-        "data": {
-            "id": "test-license-id",
-            "type": "licenses"
-        }
-    })";
+            "meta": {
+                "valid": true,
+                "code": "VALID"
+            },
+            "data": {
+                "id": "test-license-id",
+                "type": "licenses"
+            }
+        })";
 
         http.activationResponseBody = R"({
-        "data": {
-            "id": "test-machine-id",
-            "type": "machines",
-            "attributes": {
-                "fingerprint": "test-fingerprint"
+            "data": {
+                "id": "test-machine-id",
+                "type": "machines",
+                "attributes": {
+                    "fingerprint": "test-fingerprint"
+                }
             }
-        }
-    })";
+        })";
+
+        http.checkoutResponseBody = R"({
+            "data": {
+                "type": "machine-files",
+                "attributes": {
+                    "certificate": "test-machine-file"
+                }
+            }
+        })";
 
         auto store =
             std::make_unique<FakeLocalLicenseStore>();
@@ -1507,6 +1606,10 @@ namespace {
             !storePtr->storedState.machineFingerprint.empty());
 
         assert(
+            storePtr->storedState.machineFile ==
+            "test-machine-file");
+
+        assert(
             storePtr->storedState.isValid());
 
         assert(client.hasLocalLicense());
@@ -1517,25 +1620,34 @@ namespace {
         FakeHttpClient http;
 
         http.validationResponseBody = R"({
-        "meta": {
-            "valid": true,
-            "code": "VALID"
-        },
-        "data": {
-            "id": "test-license-id",
-            "type": "licenses"
-        }
-    })";
+            "meta": {
+                "valid": true,
+                "code": "VALID"
+            },
+            "data": {
+                "id": "test-license-id",
+                "type": "licenses"
+            }
+        })";
 
         http.activationResponseBody = R"({
-        "data": {
-            "id": "test-machine-id",
-            "type": "machines",
-            "attributes": {
-                "fingerprint": "test-fingerprint"
+            "data": {
+                "id": "test-machine-id",
+                "type": "machines",
+                "attributes": {
+                    "fingerprint": "test-fingerprint"
+                }
             }
-        }
-    })";
+        })";
+
+        http.checkoutResponseBody = R"({
+            "data": {
+                "type": "machine-files",
+                "attributes": {
+                    "certificate": "test-machine-file"
+                }
+            }
+        })";
 
         auto store =
             std::make_unique<FakeLocalLicenseStore>();
@@ -1700,25 +1812,34 @@ namespace {
         FakeHttpClient http;
 
         http.validationResponseBody = R"({
-        "meta": {
-            "valid": true,
-            "code": "VALID"
-        },
-        "data": {
-            "id": "test-license-id",
-            "type": "licenses"
-        }
-    })";
+            "meta": {
+                "valid": true,
+                "code": "VALID"
+            },
+            "data": {
+                "id": "test-license-id",
+                "type": "licenses"
+            }
+        })";
 
         http.activationResponseBody = R"({
-        "data": {
-            "id": "test-machine-id",
-            "type": "machines",
-            "attributes": {
-                "fingerprint": "test-fingerprint"
+            "data": {
+                "id": "test-machine-id",
+                "type": "machines",
+                "attributes": {
+                    "fingerprint": "test-fingerprint"
+                }
             }
-        }
-    })";
+        })";
+
+        http.checkoutResponseBody = R"({
+            "data": {
+                "type": "machine-files",
+                "attributes": {
+                    "certificate": "test-machine-file"
+                }
+            }
+        })";
 
         auto store =
             std::make_unique<FakeLocalLicenseStore>();
@@ -1755,25 +1876,34 @@ namespace {
         FakeHttpClient http;
 
         http.validationResponseBody = R"({
-        "meta": {
-            "valid": true,
-            "code": "VALID"
-        },
-        "data": {
-            "id": "test-license-id",
-            "type": "licenses"
-        }
-    })";
+            "meta": {
+                "valid": true,
+                "code": "VALID"
+            },
+            "data": {
+                "id": "test-license-id",
+                "type": "licenses"
+            }
+        })";
 
         http.activationResponseBody = R"({
-        "data": {
-            "id": "test-machine-id",
-            "type": "machines",
-            "attributes": {
-                "fingerprint": "test-fingerprint"
+            "data": {
+                "id": "test-machine-id",
+                "type": "machines",
+                "attributes": {
+                    "fingerprint": "test-fingerprint"
+                }
             }
-        }
-    })";
+        })";
+
+        http.checkoutResponseBody = R"({
+            "data": {
+                "type": "machine-files",
+                "attributes": {
+                    "certificate": "test-machine-file"
+                }
+            }
+        })";
 
         const auto testDirectory =
             std::filesystem::temp_directory_path() /
