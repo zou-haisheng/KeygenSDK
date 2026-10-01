@@ -587,13 +587,15 @@ namespace KeygenSDK {
             const std::string& licenseId,
             const std::string& licenseKey,
             const std::string& machineId,
-            const std::string& machineFingerprint) {
+            const std::string& machineFingerprint,
+            const std::string& machineFile) {
 
             return LocalLicenseState{
                 .licenseId = licenseId,
                 .licenseKey = licenseKey,
                 .machineId = machineId,
-                .machineFingerprint = machineFingerprint
+                .machineFingerprint = machineFingerprint,
+                .machineFile = machineFile
             };
         }
 
@@ -658,6 +660,7 @@ namespace KeygenSDK {
         std::string licenseKey;
         std::string machineId;
         std::string machineFingerprint;
+        std::string machineFile;
     };
 
     Client::Client(Config config)
@@ -721,6 +724,7 @@ namespace KeygenSDK {
                 impl_->licenseKey.clear();
                 impl_->machineId.clear();
                 impl_->machineFingerprint.clear();
+                impl_->machineFile.clear();
                 impl_->hasLocalLicense = false;
 
                 return Result::successResult(
@@ -747,6 +751,9 @@ namespace KeygenSDK {
 
         impl_->machineFingerprint =
             state.machineFingerprint;
+
+        impl_->machineFile =
+            state.machineFile;
 
         impl_->hasLocalLicense = true;
 
@@ -821,12 +828,24 @@ namespace KeygenSDK {
             return activation.result;
         }
 
+        const auto checkout =
+            checkoutMachineFile(
+                *impl_->httpClient_,
+                impl_->config_,
+                licenseKey,
+                activation.machineId);
+
+        if (!checkout.result.ok) {
+            return checkout.result;
+        }
+
         const LocalLicenseState localState =
             makeLocalLicenseState(
                 validation.licenseId,
                 licenseKey,
                 activation.machineId,
-                fingerprint);
+                fingerprint,
+                checkout.machineFile);
 
         if (!localState.isValid()) {
             return Result::failure(
@@ -851,6 +870,7 @@ namespace KeygenSDK {
         impl_->licenseKey = localState.licenseKey;
         impl_->machineId = localState.machineId;
         impl_->machineFingerprint = localState.machineFingerprint;
+        impl_->machineFile = localState.machineFile;
         impl_->hasLocalLicense = true;
 
         return activation.result;
@@ -915,6 +935,7 @@ namespace KeygenSDK {
         impl_->licenseKey.clear();
         impl_->licenseId.clear();
         impl_->machineFingerprint.clear();
+        impl_->machineFile.clear();
         impl_->hasLocalLicense = false;
 
         if (!removeResult.ok) {
