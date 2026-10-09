@@ -1,9 +1,12 @@
+
 #include "KeygenSDK/MachineFileVerifier.h"
 
 namespace KeygenSDK {
 
     Result MachineFileVerifier::verify(
         std::string_view machineFile,
+        std::string_view accountPublicKey,
+        std::string_view licenseKey,
         std::string& verifiedPayload) {
 
         verifiedPayload.clear();
@@ -13,6 +16,11 @@ namespace KeygenSDK {
                 ErrorCode::OfflineDataMissing,
                 "Machine file is empty.");
         }
+
+        // Cryptographic verification will be implemented
+        // in the next step.
+        (void)accountPublicKey;
+        (void)licenseKey;
 
         return Result::failure(
             ErrorCode::OfflineVerificationFailed,

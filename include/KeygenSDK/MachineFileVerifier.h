@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <string>
@@ -11,6 +12,8 @@ namespace KeygenSDK {
     public:
         [[nodiscard]] static Result verify(
             std::string_view machineFile,
+            std::string_view accountPublicKey,
+            std::string_view licenseKey,
             std::string& verifiedPayload);
     };
 
