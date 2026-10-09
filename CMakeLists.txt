@@ -20,11 +20,13 @@ endif()
 
 find_package(CURL REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 add_library(KeygenSDK ${KEYGENSDK_LIBRARY_TYPE}
     src/Client.cpp
     src/HttpClient.cpp
     src/MachineIdentity.cpp
+    src/MachineFileVerifier.cpp
     src/LocalLicenseSerialization.cpp
     src/FileLocalLicenseStore.cpp
     src/LocalDataProtection.cpp
@@ -41,10 +43,11 @@ target_include_directories(KeygenSDK
 )
 
 target_link_libraries(
-    KeygenSDK 
-    PRIVATE 
+    KeygenSDK
+    PRIVATE
         CURL::libcurl
         nlohmann_json::nlohmann_json
+        OpenSSL::Crypto
         Crypt32
 )
 
