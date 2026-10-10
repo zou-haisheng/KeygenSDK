@@ -75,6 +75,7 @@ namespace KeygenSDKTests {
     void testLocalDataProtectionDoesNotModifyOutputOnProtectFailure();
     void testLocalDataProtectionDoesNotModifyOutputOnUnprotectFailure();
 
+    void testMachineFileVerifier();
 }
 
 namespace {
@@ -2112,5 +2113,7 @@ int main() {
     KeygenSDKTests::testLocalDataProtectionRejectsInvalidProtectedData();
     KeygenSDKTests::testLocalDataProtectionDoesNotModifyOutputOnProtectFailure();
     KeygenSDKTests::testLocalDataProtectionDoesNotModifyOutputOnUnprotectFailure();
+    
+    KeygenSDKTests::testMachineFileVerifier();
     return 0;
 }

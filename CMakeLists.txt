@@ -105,12 +105,14 @@ if(KEYGENSDK_BUILD_TESTS)
         tests/test_local_license_serialization.cpp
         tests/test_file_local_license_store.cpp
         tests/test_local_data_protection.cpp
+        tests/test_machine_file_verifier.cpp
     )
     target_link_libraries(
         KeygenSDKTests
         PRIVATE
             KeygenSDK::KeygenSDK
             nlohmann_json::nlohmann_json
+            OpenSSL::Crypto
     )
     add_test(NAME KeygenSDKTests COMMAND KeygenSDKTests)
 endif()
