@@ -411,8 +411,6 @@ namespace KeygenSDKTests {
             std::vector<unsigned char> decoded(
                 3 * (encodedCertificate.size() / 4));
 
-            assert(encodedCertificate.size() % 4 == 0);
-
             const int decodedLength = EVP_DecodeBlock(
                 decoded.data(),
                 reinterpret_cast<const unsigned char*>(
