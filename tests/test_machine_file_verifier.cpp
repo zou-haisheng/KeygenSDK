@@ -382,15 +382,12 @@ namespace KeygenSDKTests {
 
             assert(endMarker != std::string::npos);
 
-            const auto signaturePosition = machineFile.find("sig");
-
             // Alter a character in the Base64-encoded certificate body.
             // The outer Base64 is intentionally corrupted, so parsing must fail.
-            assert(signaturePosition != std::string::npos);
-            const auto bodyPosition =
-                machineFile.find('\n') + 1;
+            const auto bodyPosition = machineFile.find('\n') + 1;
 
             assert(bodyPosition > 0 && bodyPosition < endMarker);
+
             machineFile[bodyPosition] =
                 machineFile[bodyPosition] == 'A' ? 'B' : 'A';
 

@@ -338,15 +338,9 @@ namespace KeygenSDK {
                 return false;
             }
 
-            std::vector<unsigned char> combinedCiphertext =
-                std::move(ciphertext);
-
-            combinedCiphertext.insert(
-                combinedCiphertext.end(),
-                tag.begin(),
-                tag.end());
-
-            plaintext.resize(combinedCiphertext.size());
+            // Decrypt only the ciphertext. The GCM authentication tag must
+            // be supplied separately through EVP_CTRL_GCM_SET_TAG.
+            plaintext.resize(ciphertext.size());
 
             int plaintextLength = 0;
 
@@ -354,14 +348,23 @@ namespace KeygenSDK {
                 context.get(),
                 reinterpret_cast<unsigned char*>(plaintext.data()),
                 &plaintextLength,
-                combinedCiphertext.data(),
-                static_cast<int>(combinedCiphertext.size())) != 1) {
+                ciphertext.data(),
+                static_cast<int>(ciphertext.size())) != 1) {
                 plaintext.clear();
                 return false;
             }
 
-            // GCM authentication is completed here. Never expose plaintext
-            // unless the authentication tag has been accepted.
+            // Configure the expected authentication tag before finalization.
+            if (EVP_CIPHER_CTX_ctrl(
+                context.get(),
+                EVP_CTRL_GCM_SET_TAG,
+                static_cast<int>(tag.size()),
+                tag.data()) != 1) {
+                plaintext.clear();
+                return false;
+            }
+
+            // Authentication is verified here. Do not expose plaintext if it fails.
             int finalLength = 0;
 
             if (EVP_DecryptFinal_ex(
