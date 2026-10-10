@@ -12,6 +12,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <cctype>
 
 namespace KeygenSDKTests {
     namespace {
@@ -369,6 +370,7 @@ namespace KeygenSDKTests {
             assert(verifiedPayload.empty());
         }
 
+
         void testMachineFileRejectsTamperedSignature() {
             auto keyPair = makeKeyPair();
 
@@ -377,19 +379,82 @@ namespace KeygenSDKTests {
                 kLicenseKey,
                 R"({"data":{"id":"machine-123","type":"machines"}})");
 
-            const auto endMarker =
-                machineFile.find("-----END MACHINE FILE-----");
+            constexpr std::string_view beginMarker =
+                "-----BEGIN MACHINE FILE-----";
+            constexpr std::string_view endMarker =
+                "-----END MACHINE FILE-----";
 
-            assert(endMarker != std::string::npos);
+            const auto bodyStart = machineFile.find('\n');
+            const auto endMarkerPosition = machineFile.find(endMarker);
 
-            // Alter a character in the Base64-encoded certificate body.
-            // The outer Base64 is intentionally corrupted, so parsing must fail.
-            const auto bodyPosition = machineFile.find('\n') + 1;
+            assert(bodyStart != std::string::npos);
+            assert(endMarkerPosition != std::string::npos);
+            assert(bodyStart + 1 < endMarkerPosition);
 
-            assert(bodyPosition > 0 && bodyPosition < endMarker);
+            std::string encodedCertificate;
+            for (std::size_t i = bodyStart + 1;
+                i < endMarkerPosition;
+                ++i) {
+                const unsigned char ch =
+                    static_cast<unsigned char>(machineFile[i]);
 
-            machineFile[bodyPosition] =
-                machineFile[bodyPosition] == 'A' ? 'B' : 'A';
+                if (!std::isspace(ch)) {
+                    encodedCertificate.push_back(static_cast<char>(ch));
+                }
+            }
+
+            assert(!encodedCertificate.empty());
+            assert(encodedCertificate.size() % 4 == 0);
+
+
+            // Decode the outer Base64 certificate.
+            std::vector<unsigned char> decoded(
+                3 * (encodedCertificate.size() / 4));
+
+            assert(encodedCertificate.size() % 4 == 0);
+
+            const int decodedLength = EVP_DecodeBlock(
+                decoded.data(),
+                reinterpret_cast<const unsigned char*>(
+                    encodedCertificate.data()),
+                static_cast<int>(encodedCertificate.size()));
+
+            assert(decodedLength >= 0);
+
+            std::size_t padding = 0;
+            if (!encodedCertificate.empty() &&
+                encodedCertificate.back() == '=') {
+                ++padding;
+            }
+            if (encodedCertificate.size() >= 2 &&
+                encodedCertificate[encodedCertificate.size() - 2] == '=') {
+                ++padding;
+            }
+
+            assert(static_cast<std::size_t>(decodedLength) >= padding);
+            decoded.resize(
+                static_cast<std::size_t>(decodedLength) - padding);
+
+            Json certificate = Json::parse(decoded.begin(), decoded.end());
+
+            assert(certificate.contains("sig"));
+            assert(certificate["sig"].is_string());
+
+            std::string signature = certificate["sig"].get<std::string>();
+            assert(!signature.empty());
+
+            // Change a character in the signature while preserving valid JSON
+            // and a valid outer Base64 encoding.
+            signature[0] = signature[0] == 'A' ? 'B' : 'A';
+            certificate["sig"] = signature;
+
+            const std::string tamperedJson = certificate.dump();
+            const std::string tamperedBase64 = base64Encode(
+                reinterpret_cast<const unsigned char*>(tamperedJson.data()),
+                tamperedJson.size());
+
+            machineFile = std::string(beginMarker) + "\n" +
+                tamperedBase64 + "\n" + std::string(endMarker);
 
             std::string verifiedPayload;
 
@@ -405,6 +470,7 @@ namespace KeygenSDKTests {
                 KeygenSDK::ErrorCode::OfflineVerificationFailed);
             assert(verifiedPayload.empty());
         }
+
 
     } // namespace
 
