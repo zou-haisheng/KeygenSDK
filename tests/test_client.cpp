@@ -1990,6 +1990,77 @@ namespace {
             cleanupError);
     }
 
+
+    void testVerifyOfflineWithoutLocalLicense() {
+        FakeHttpClient http;
+
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
+        store->loadResult =
+            KeygenSDK::Result::failure(
+                KeygenSDK::ErrorCode::LocalStateNotFound,
+                "No local state.");
+
+        auto* storePtr = store.get();
+
+        auto client =
+            KeygenSDK::ClientTestAccess::create(
+                testConfig(),
+                http,
+                std::move(store));
+
+        const auto result = client.verifyOffline();
+
+        assert(!result.ok);
+        assert(
+            result.error ==
+            KeygenSDK::ErrorCode::OfflineDataMissing);
+
+        assert(storePtr->loadCallCount == 1);
+        assert(!client.hasLocalLicense());
+        assert(http.postCallCount == 0);
+    }
+
+    void testVerifyOfflineWithoutMachineFile() {
+        FakeHttpClient http;
+
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
+        store->storedState =
+            KeygenSDK::LocalLicenseState{
+                .licenseId = "test-license-id",
+                .licenseKey = "TEST-LICENSE-KEY",
+                .machineId = "test-machine-id",
+                .machineFingerprint = "test-fingerprint",
+                .machineFile = ""
+        };
+
+        auto* storePtr = store.get();
+
+        auto client =
+            KeygenSDK::ClientTestAccess::create(
+                testConfig(),
+                http,
+                std::move(store));
+
+        const auto loadResult = client.loadLocalLicense();
+
+        assert(loadResult.ok);
+        assert(client.hasLocalLicense());
+
+        const auto result = client.verifyOffline();
+
+        assert(!result.ok);
+        assert(
+            result.error ==
+            KeygenSDK::ErrorCode::OfflineDataMissing);
+
+        assert(storePtr->loadCallCount == 1);
+        assert(http.postCallCount == 0);
+    }
+
 } // namespace
 
 int main() {
@@ -2079,6 +2150,9 @@ int main() {
     testLoadLocalLicenseRejectsInvalidState();
     testLoadLocalLicenseMissingStateClearsExistingState();
     testClientDefaultLocalLicenseStoreLifecycle();
+
+    testVerifyOfflineWithoutLocalLicense();
+    testVerifyOfflineWithoutMachineFile();
 
     KeygenSDKTests::testLocalLicenseStoreSaveAndLoad();
     KeygenSDKTests::testLocalLicenseStoreLoadMissingState();

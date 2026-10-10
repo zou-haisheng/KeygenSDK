@@ -4,6 +4,7 @@
 #include "KeygenSDK/FileLocalLicenseStore.h"
 #include "KeygenSDK/LocalLicenseStore.h"
 #include "KeygenSDK/LocalLicenseState.h"
+#include "KeygenSDK/MachineFileVerifier.h"
 
 #include <nlohmann/json.hpp>
 
@@ -876,10 +877,49 @@ namespace KeygenSDK {
         return activation.result;
     }
 
+
     Result Client::verifyOffline() {
-        return Result::failure(
-            ErrorCode::OfflineDataMissing,
-            "Offline licensing is not implemented yet.");
+        if (!impl_) {
+            return Result::failure(
+                ErrorCode::InvalidConfiguration,
+                "Client is not initialized.");
+        }
+
+        if (!impl_->hasLocalLicense) {
+            const Result loadResult = loadLocalLicense();
+
+            if (!loadResult.ok) {
+                return loadResult;
+            }
+        }
+
+        if (!impl_->hasLocalLicense) {
+            return Result::failure(
+                ErrorCode::OfflineDataMissing,
+                "No local license state is available.");
+        }
+
+        if (impl_->machineFile.empty()) {
+            return Result::failure(
+                ErrorCode::OfflineDataMissing,
+                "Local machine file is missing.");
+        }
+
+        std::string verifiedPayload;
+
+        const Result verificationResult =
+            MachineFileVerifier::verify(
+                impl_->machineFile,
+                impl_->config_.accountPublicKey,
+                impl_->licenseKey,
+                verifiedPayload);
+
+        if (!verificationResult.ok) {
+            return verificationResult;
+        }
+
+        return Result::successResult(
+            "Offline machine file verification succeeded.");
     }
 
     Result Client::deactivate() {
