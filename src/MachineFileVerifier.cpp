@@ -395,8 +395,6 @@ namespace KeygenSDK {
         std::string_view licenseKey,
         std::string_view machineFingerprint,
         std::string& verifiedPayload) {
-            {
-
         verifiedPayload.clear();
 
         if (machineFile.empty()) {

@@ -34,6 +34,9 @@ namespace KeygenSDKTests {
         constexpr std::string_view kLicenseKey =
             "TEST-MACHINE-FILE-LICENSE-KEY";
 
+        constexpr std::string_view kMachineFingerprint =
+            "TEST-MACHINE-FINGERPRINT";
+
         std::string base64Encode(
             const unsigned char* data,
             std::size_t size) {
@@ -153,14 +156,18 @@ namespace KeygenSDKTests {
 
         std::string encryptPayload(
             std::string_view licenseKey,
+            std::string_view machineFingerprint,
             std::string_view payload) {
+
+            const std::string secret =
+                std::string(licenseKey) + std::string(machineFingerprint);
 
             unsigned char aesKey[SHA256_DIGEST_LENGTH]{};
 
             assert(
                 SHA256(
-                    reinterpret_cast<const unsigned char*>(licenseKey.data()),
-                    licenseKey.size(),
+                    reinterpret_cast<const unsigned char*>(secret.data()),
+                    secret.size(),
                     aesKey) != nullptr);
 
             unsigned char iv[12]{};
@@ -239,7 +246,7 @@ namespace KeygenSDKTests {
             std::string_view algorithm = "aes-256-gcm+ed25519") {
 
             const std::string enc =
-                encryptPayload(licenseKey, payload);
+                encryptPayload(licenseKey, kMachineFingerprint, payload);
 
             const std::string message = "machine/" + enc;
 
@@ -276,6 +283,7 @@ namespace KeygenSDKTests {
                 machineFile,
                 keyPair.publicKeyHex,
                 kLicenseKey,
+                kMachineFingerprint,
                 verifiedPayload);
 
             assert(result.ok);
@@ -298,6 +306,7 @@ namespace KeygenSDKTests {
                 machineFile,
                 unrelatedKey.publicKeyHex,
                 kLicenseKey,
+                kMachineFingerprint,
                 verifiedPayload);
 
             assert(!result.ok);
@@ -321,6 +330,7 @@ namespace KeygenSDKTests {
                 machineFile,
                 keyPair.publicKeyHex,
                 "WRONG-LICENSE-KEY",
+                kMachineFingerprint,
                 verifiedPayload);
 
             assert(!result.ok);
@@ -337,6 +347,7 @@ namespace KeygenSDKTests {
                 "not a machine file",
                 std::string(64, '0'),
                 kLicenseKey,
+                kMachineFingerprint,
                 verifiedPayload);
 
             assert(!result.ok);
@@ -361,6 +372,7 @@ namespace KeygenSDKTests {
                 machineFile,
                 keyPair.publicKeyHex,
                 kLicenseKey,
+                kMachineFingerprint,
                 verifiedPayload);
 
             assert(!result.ok);
@@ -460,6 +472,7 @@ namespace KeygenSDKTests {
                 machineFile,
                 keyPair.publicKeyHex,
                 kLicenseKey,
+                kMachineFingerprint,
                 verifiedPayload);
 
             assert(!result.ok);
