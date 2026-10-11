@@ -14,6 +14,8 @@ namespace KeygenSDK {
             std::string_view machineFile,
             std::string_view accountPublicKey,
             std::string_view licenseKey,
+            std::string_view machineFingerprint,
+            std::string_view machineFingerprint,
             std::string& verifiedPayload);
     };
 

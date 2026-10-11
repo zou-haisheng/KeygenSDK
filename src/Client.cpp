@@ -912,6 +912,7 @@ namespace KeygenSDK {
                 impl_->machineFile,
                 impl_->config_.accountPublicKey,
                 impl_->licenseKey,
+                impl_->machineFingerprint,
                 verifiedPayload);
 
         if (!verificationResult.ok) {

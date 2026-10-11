@@ -263,6 +263,7 @@ namespace KeygenSDK {
         bool decryptAes256Gcm(
             std::string_view encodedData,
             std::string_view licenseKey,
+            std::string_view machineFingerprint,
             std::string& plaintext) {
 
             plaintext.clear();
@@ -289,15 +290,19 @@ namespace KeygenSDK {
                 return false;
             }
 
-            // Keygen derives the AES-256 key as SHA-256(license key).
+
+            const std::string secret =
+                std::string(licenseKey) + std::string(machineFingerprint);
+
             unsigned char aesKey[SHA256_DIGEST_LENGTH]{};
 
             if (SHA256(
-                reinterpret_cast<const unsigned char*>(licenseKey.data()),
-                licenseKey.size(),
+                reinterpret_cast<const unsigned char*>(secret.data()),
+                secret.size(),
                 aesKey) == nullptr) {
                 return false;
             }
+
 
             // AES-GCM uses a 12-byte IV and a 16-byte authentication tag.
             if (iv.size() != 12 || tag.size() != 16) {
@@ -388,7 +393,9 @@ namespace KeygenSDK {
         std::string_view machineFile,
         std::string_view accountPublicKey,
         std::string_view licenseKey,
+        std::string_view machineFingerprint,
         std::string& verifiedPayload) {
+            {
 
         verifiedPayload.clear();
 
@@ -398,7 +405,9 @@ namespace KeygenSDK {
                 "Machine file is empty.");
         }
 
-        if (accountPublicKey.empty() || licenseKey.empty()) {
+        if (accountPublicKey.empty() ||
+            licenseKey.empty() ||
+            machineFingerprint.empty()) {
             return verificationFailure(
                 "Account public key and license key are required.");
         }
@@ -482,6 +491,7 @@ namespace KeygenSDK {
         if (!decryptAes256Gcm(
             enc,
             licenseKey,
+            machineFingerprint,
             plaintext)) {
             return verificationFailure(
                 "Machine file decryption or authentication failed.");
