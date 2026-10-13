@@ -2061,6 +2061,45 @@ namespace {
         assert(http.postCallCount == 0);
     }
 
+    void testVerifyOfflineRejectsInvalidMachineFile() {
+        FakeHttpClient http;
+
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
+        store->storedState =
+            KeygenSDK::LocalLicenseState{
+                .licenseId = "test-license-id",
+                .licenseKey = "TEST-LICENSE-KEY",
+                .machineId = "test-machine-id",
+                .machineFingerprint = "test-fingerprint",
+                .machineFile = "not a machine file"
+        };
+
+        auto clientConfig = testConfig();
+        clientConfig.accountPublicKey = std::string(64, '0');
+
+        auto client =
+            KeygenSDK::ClientTestAccess::create(
+                clientConfig,
+                http,
+                std::move(store));
+
+        const auto loadResult = client.loadLocalLicense();
+
+        assert(loadResult.ok);
+        assert(client.hasLocalLicense());
+
+        const auto result = client.verifyOffline();
+
+        assert(!result.ok);
+        assert(
+            result.error ==
+            KeygenSDK::ErrorCode::OfflineVerificationFailed);
+        assert(client.hasLocalLicense());
+        assert(http.postCallCount == 0);
+    }
+
 } // namespace
 
 int main() {
@@ -2153,6 +2192,7 @@ int main() {
 
     testVerifyOfflineWithoutLocalLicense();
     testVerifyOfflineWithoutMachineFile();
+    testVerifyOfflineRejectsInvalidMachineFile();
 
     KeygenSDKTests::testLocalLicenseStoreSaveAndLoad();
     KeygenSDKTests::testLocalLicenseStoreLoadMissingState();
