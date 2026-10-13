@@ -482,6 +482,44 @@ namespace KeygenSDKTests {
             assert(verifiedPayload.empty());
         }
 
+        void testMachineFileRejectsInvalidPayloadStructure() {
+            auto keyPair = makeKeyPair();
+
+            const std::vector<std::string> invalidPayloads = {
+                "not-json",
+                R"([])",
+                R"({})",
+                R"({"data":[]})",
+                R"({"data":{"id":123,"type":"machines"}})",
+                R"({"data":{"id":"machine-123","type":"licenses"}})",
+                R"({"data":{"id":"machine-123","type":"machines","attributes":[]}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":[]})",
+                R"({"data":{"id":"machine-123","type":"machines"},"included":{}})"
+            };
+
+            for (const std::string& payload : invalidPayloads) {
+                const std::string machineFile = makeMachineFile(
+                    keyPair.privateKey.get(),
+                    kLicenseKey,
+                    payload);
+
+                std::string verifiedPayload = "must be cleared";
+
+                const auto result =
+                    KeygenSDK::MachineFileVerifier::verify(
+                        machineFile,
+                        keyPair.publicKeyHex,
+                        kLicenseKey,
+                        kMachineFingerprint,
+                        verifiedPayload);
+
+                assert(!result.ok);
+                assert(
+                    result.error ==
+                    KeygenSDK::ErrorCode::OfflineVerificationFailed);
+                assert(verifiedPayload.empty());
+            }
+        }
 
     } // namespace
 
@@ -491,6 +529,7 @@ namespace KeygenSDKTests {
         testMachineFileRejectsWrongLicenseKey();
         testMachineFileRejectsInvalidWrapper();
         testMachineFileRejectsUnsupportedAlgorithm();
+        testMachineFileRejectsInvalidPayloadStructure();
         testMachineFileRejectsTamperedSignature();
     }
 

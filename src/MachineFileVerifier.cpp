@@ -495,8 +495,48 @@ namespace KeygenSDK {
                 "Machine file decryption or authentication failed.");
         }
 
-        // Commit output only after signature verification and authenticated
-        // decryption have both succeeded.
+        Json payload;
+
+        try {
+            payload = Json::parse(plaintext);
+        }
+        catch (const Json::exception&) {
+            return verificationFailure(
+                "Machine file payload is not valid JSON.");
+        }
+
+        if (!payload.is_object() ||
+            !payload.contains("data") ||
+            !payload["data"].is_object()) {
+            return verificationFailure(
+                "Machine file payload must contain a data object.");
+        }
+
+        const Json& machine = payload["data"];
+
+        if (!machine.contains("id") ||
+            !machine["id"].is_string() ||
+            machine["id"].get_ref<const std::string&>().empty() ||
+            !machine.contains("type") ||
+            !machine["type"].is_string() ||
+            machine["type"] != "machines") {
+            return verificationFailure(
+                "Machine file payload does not contain a valid machine resource.");
+        }
+
+        if ((machine.contains("attributes") &&
+            !machine["attributes"].is_object()) ||
+            (machine.contains("relationships") &&
+                !machine["relationships"].is_object()) ||
+            (payload.contains("meta") &&
+                !payload["meta"].is_object()) ||
+            (payload.contains("included") &&
+                !payload["included"].is_array())) {
+            return verificationFailure(
+                "Machine file payload contains invalid JSON:API structures.");
+        }
+
+        // Preserve the original plaintext after its JSON structure is valid.
         verifiedPayload = std::move(plaintext);
 
         return Result::successResult(
