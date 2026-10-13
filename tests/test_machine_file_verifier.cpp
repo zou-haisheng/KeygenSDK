@@ -270,7 +270,7 @@ namespace KeygenSDKTests {
             auto keyPair = makeKeyPair();
 
             const std::string payload =
-                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"ttl":3600}})";
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00.000Z","expiry":"2999-01-01T00:00:00.000Z","ttl":3600}})";
 
             const std::string machineFile = makeMachineFile(
                 keyPair.privateKey.get(),
@@ -521,6 +521,58 @@ namespace KeygenSDKTests {
             }
         }
 
+        void testMachineFileRejectsInvalidTimestamps() {
+            auto keyPair = makeKeyPair();
+
+            const std::vector<std::string> invalidPayloads = {
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2999-01-01T00:00:00Z","expiry":"2999-01-02T00:00:00Z"}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2000-01-01T00:00:00Z"}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"not-a-timestamp","expiry":"2999-01-02T00:00:00Z"}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":123}})"
+            };
+
+            for (const std::string& payload : invalidPayloads) {
+                const std::string machineFile = makeMachineFile(
+                    keyPair.privateKey.get(),
+                    kLicenseKey,
+                    payload);
+
+                std::string verifiedPayload = "must be cleared";
+
+                const auto result =
+                    KeygenSDK::MachineFileVerifier::verify(
+                        machineFile,
+                        keyPair.publicKeyHex,
+                        kLicenseKey,
+                        kMachineFingerprint,
+                        verifiedPayload);
+
+                assert(!result.ok);
+                assert(verifiedPayload.empty());
+            }
+
+            const std::string noExpiryPayload =
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":null,"ttl":null}})";
+
+            const std::string noExpiryMachineFile = makeMachineFile(
+                keyPair.privateKey.get(),
+                kLicenseKey,
+                noExpiryPayload);
+
+            std::string verifiedPayload;
+
+            const auto noExpiryResult =
+                KeygenSDK::MachineFileVerifier::verify(
+                    noExpiryMachineFile,
+                    keyPair.publicKeyHex,
+                    kLicenseKey,
+                    kMachineFingerprint,
+                    verifiedPayload);
+
+            assert(noExpiryResult.ok);
+            assert(verifiedPayload == noExpiryPayload);
+        }
+
     } // namespace
 
     void testMachineFileVerifier() {
@@ -531,6 +583,7 @@ namespace KeygenSDKTests {
         testMachineFileRejectsUnsupportedAlgorithm();
         testMachineFileRejectsInvalidPayloadStructure();
         testMachineFileRejectsTamperedSignature();
+        testMachineFileRejectsInvalidTimestamps();
     }
 
 } // namespace KeygenSDKTests

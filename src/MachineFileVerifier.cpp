@@ -11,6 +11,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <charconv>
+#include <chrono>
+#include <optional>
 
 namespace KeygenSDK {
     namespace {
@@ -125,6 +128,151 @@ namespace KeygenSDK {
             }
 
             return std::string(value.substr(first, last - first));
+        }
+
+        std::optional<std::chrono::sys_time<std::chrono::milliseconds>>
+            parseIso8601Timestamp(std::string_view value) {
+            using namespace std::chrono;
+
+            const auto parseDigits = [](
+                std::string_view text,
+                std::size_t position,
+                std::size_t count,
+                int& result) -> bool {
+                    if (position + count > text.size()) {
+                        return false;
+                    }
+
+                    const char* first = text.data() + position;
+                    const char* end = first + count;
+                    const auto parsed = std::from_chars(first, end, result);
+
+                    return parsed.ec == std::errc{} &&
+                        parsed.ptr == end;
+                };
+
+            if (value.size() < 20 ||
+                value[4] != '-' ||
+                value[7] != '-' ||
+                (value[10] != 'T' && value[10] != 't') ||
+                value[13] != ':' ||
+                value[16] != ':') {
+                return std::nullopt;
+            }
+
+            int parsedYear = 0;
+            int parsedMonth = 0;
+            int parsedDay = 0;
+            int parsedHour = 0;
+            int parsedMinute = 0;
+            int parsedSecond = 0;
+
+            if (!parseDigits(value, 0, 4, parsedYear) ||
+                !parseDigits(value, 5, 2, parsedMonth) ||
+                !parseDigits(value, 8, 2, parsedDay) ||
+                !parseDigits(value, 11, 2, parsedHour) ||
+                !parseDigits(value, 14, 2, parsedMinute) ||
+                !parseDigits(value, 17, 2, parsedSecond)) {
+                return std::nullopt;
+            }
+
+            const year_month_day date{
+                year{ parsedYear },
+                month{ static_cast<unsigned>(parsedMonth) },
+                day{ static_cast<unsigned>(parsedDay) }
+            };
+
+            if (!date.ok() ||
+                parsedHour > 23 ||
+                parsedMinute > 59 ||
+                parsedSecond > 59) {
+                return std::nullopt;
+            }
+
+            std::size_t position = 19;
+            int fractionalMilliseconds = 0;
+
+            if (position < value.size() && value[position] == '.') {
+                ++position;
+
+                std::size_t fractionDigits = 0;
+
+                while (position < value.size() &&
+                    value[position] >= '0' &&
+                    value[position] <= '9') {
+                    if (fractionDigits < 3) {
+                        fractionalMilliseconds =
+                            fractionalMilliseconds * 10 +
+                            (value[position] - '0');
+                    }
+
+                    ++fractionDigits;
+                    ++position;
+                }
+
+                if (fractionDigits == 0) {
+                    return std::nullopt;
+                }
+
+                if (fractionDigits == 1) {
+                    fractionalMilliseconds *= 100;
+                }
+                else if (fractionDigits == 2) {
+                    fractionalMilliseconds *= 10;
+                }
+
+            }
+
+            int offsetMinutes = 0;
+
+            if (position < value.size() &&
+                (value[position] == 'Z' || value[position] == 'z')) {
+                ++position;
+            }
+            else if (position < value.size() &&
+                (value[position] == '+' || value[position] == '-')) {
+                const int sign = value[position] == '+' ? 1 : -1;
+
+                if (position + 6 != value.size() ||
+                    value[position + 3] != ':') {
+                    return std::nullopt;
+                }
+
+                int offsetHours = 0;
+                int offsetRemainderMinutes = 0;
+
+                if (!parseDigits(value, position + 1, 2, offsetHours) ||
+                    !parseDigits(
+                        value,
+                        position + 4,
+                        2,
+                        offsetRemainderMinutes) ||
+                    offsetHours > 23 ||
+                    offsetRemainderMinutes > 59) {
+                    return std::nullopt;
+                }
+
+                offsetMinutes =
+                    sign * (offsetHours * 60 + offsetRemainderMinutes);
+                position += 6;
+            }
+            else {
+                return std::nullopt;
+            }
+
+            if (position != value.size()) {
+                return std::nullopt;
+            }
+
+            const auto localTime =
+                sys_days{ date } +
+                hours{ parsedHour } +
+                minutes{ parsedMinute } +
+                seconds{ parsedSecond } +
+                std::chrono::milliseconds{ fractionalMilliseconds };
+
+            return time_point_cast<milliseconds>(
+                localTime - minutes{ offsetMinutes });
         }
 
         bool decodeHexPublicKey(
@@ -534,6 +682,54 @@ namespace KeygenSDK {
                 !payload["included"].is_array())) {
             return verificationFailure(
                 "Machine file payload contains invalid JSON:API structures.");
+        }
+
+        if (!payload.contains("meta") ||
+            !payload["meta"].is_object() ||
+            !payload["meta"].contains("issued") ||
+            !payload["meta"]["issued"].is_string() ||
+            !payload["meta"].contains("expiry")) {
+            return verificationFailure(
+                "Machine file payload is missing TTL metadata.");
+        }
+
+        const auto issued = parseIso8601Timestamp(
+            payload["meta"]["issued"].get_ref<const std::string&>());
+
+        if (!issued) {
+            return verificationFailure(
+                "Machine file issued timestamp is invalid.");
+        }
+
+        const auto now =
+            std::chrono::time_point_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now());
+
+        if (*issued > now) {
+            return verificationFailure(
+                "Machine file was issued in the future.");
+        }
+
+        const Json& expiry = payload["meta"]["expiry"];
+
+        if (expiry.is_string()) {
+            const auto parsedExpiry = parseIso8601Timestamp(
+                expiry.get_ref<const std::string&>());
+
+            if (!parsedExpiry) {
+                return verificationFailure(
+                    "Machine file expiry timestamp is invalid.");
+            }
+
+            if (*parsedExpiry < now) {
+                return Result::failure(
+                    ErrorCode::LicenseExpired,
+                    "Machine file has expired.");
+            }
+        }
+        else if (!expiry.is_null()) {
+            return verificationFailure(
+                "Machine file expiry must be a timestamp or null.");
         }
 
         // Preserve the original plaintext after its JSON structure is valid.
