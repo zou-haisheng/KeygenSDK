@@ -143,6 +143,12 @@ namespace KeygenSDK {
                         return false;
                     }
 
+                    for (std::size_t i = position; i < position + count; ++i) {
+                        if (text[i] < '0' || text[i] > '9') {
+                            return false;
+                        }
+                    }
+
                     const char* first = text.data() + position;
                     const char* end = first + count;
                     const auto parsed = std::from_chars(first, end, result);

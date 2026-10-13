@@ -528,7 +528,8 @@ namespace KeygenSDKTests {
                 R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2999-01-01T00:00:00Z","expiry":"2999-01-02T00:00:00Z"}})",
                 R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2000-01-01T00:00:00Z"}})",
                 R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"not-a-timestamp","expiry":"2999-01-02T00:00:00Z"}})",
-                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":123}})"
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":123}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T-1:00:00Z","expiry":"2999-01-02T00:00:00Z"}})",
             };
 
             for (const std::string& payload : invalidPayloads) {
