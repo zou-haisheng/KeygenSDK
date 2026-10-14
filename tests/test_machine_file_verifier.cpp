@@ -532,7 +532,8 @@ namespace KeygenSDKTests {
                 R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T-1:00:00Z","expiry":"2999-01-02T00:00:00Z"}})",
             };
 
-            for (const std::string& payload : invalidPayloads) {
+            for (std::size_t i = 0; i < invalidPayloads.size(); ++i) {
+                const std::string& payload = invalidPayloads[i];
                 const std::string machineFile = makeMachineFile(
                     keyPair.privateKey.get(),
                     kLicenseKey,
@@ -549,6 +550,11 @@ namespace KeygenSDKTests {
                         verifiedPayload);
 
                 assert(!result.ok);
+                assert(
+                    result.error ==
+                    (i == 1
+                        ? KeygenSDK::ErrorCode::LicenseExpired
+                        : KeygenSDK::ErrorCode::OfflineVerificationFailed));
                 assert(verifiedPayload.empty());
             }
 
