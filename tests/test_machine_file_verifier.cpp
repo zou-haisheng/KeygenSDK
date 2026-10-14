@@ -270,7 +270,7 @@ namespace KeygenSDKTests {
             auto keyPair = makeKeyPair();
 
             const std::string payload =
-                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00.000Z","expiry":"2999-01-01T00:00:00.000Z","ttl":3600}})";
+                R"({"data":{"id":"machine-123","type":"machines","attributes":{"fingerprint":"TEST-MACHINE-FINGERPRINT"}},"meta":{"issued":"2020-01-01T00:00:00.000Z","expiry":"2999-01-01T00:00:00.000Z","ttl":3600}})";
 
             const std::string machineFile = makeMachineFile(
                 keyPair.privateKey.get(),
@@ -494,7 +494,8 @@ namespace KeygenSDKTests {
                 R"({"data":{"id":"machine-123","type":"licenses"}})",
                 R"({"data":{"id":"machine-123","type":"machines","attributes":[]}})",
                 R"({"data":{"id":"machine-123","type":"machines"},"meta":[]})",
-                R"({"data":{"id":"machine-123","type":"machines"},"included":{}})"
+                R"({"data":{"id":"machine-123","type":"machines"},"included":{}})",
+                R"({"data":{"id":"machine-123","type":"machines","attributes":{"fingerprint":"ANOTHER-MACHINE"}},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2999-01-01T00:00:00Z"}})",
             };
 
             for (const std::string& payload : invalidPayloads) {

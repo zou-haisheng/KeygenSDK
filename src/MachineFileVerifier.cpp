@@ -738,6 +738,19 @@ namespace KeygenSDK {
                 "Machine file expiry must be a timestamp or null.");
         }
 
+        if (machine.contains("attributes")) {
+            const Json& attributes = machine["attributes"];
+
+            if (attributes.contains("fingerprint") &&
+                (!attributes["fingerprint"].is_string() ||
+                    std::string_view(
+                        attributes["fingerprint"].get_ref<const std::string&>()) !=
+                    machineFingerprint)) {
+                return verificationFailure(
+                    "Machine file fingerprint does not match this machine.");
+            }
+        }
+
         // Preserve the original plaintext after its JSON structure is valid.
         verifiedPayload = std::move(plaintext);
 
