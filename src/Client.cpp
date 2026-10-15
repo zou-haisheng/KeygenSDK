@@ -919,6 +919,26 @@ namespace KeygenSDK {
             return verificationResult;
         }
 
+        nlohmann::json payload;
+
+        try {
+            payload = nlohmann::json::parse(verifiedPayload);
+        }
+        catch (const nlohmann::json::exception&) {
+            return Result::failure(
+                ErrorCode::OfflineVerificationFailed,
+                "Verified machine file payload could not be parsed.");
+        }
+
+        const std::string payloadMachineId =
+            payload["data"]["id"].get<std::string>();
+
+        if (payloadMachineId != impl_->machineId) {
+            return Result::failure(
+                ErrorCode::OfflineVerificationFailed,
+                "Machine file does not match the locally activated machine.");
+        }
+
         return Result::successResult(
             "Offline machine file verification succeeded.");
     }
