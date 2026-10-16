@@ -583,6 +583,18 @@ namespace KeygenSDKTests {
 
     } // namespace
 
+    std::string makeMachineFileForClientTest(
+        const std::string& payload,
+        std::string& publicKeyHex) {
+        auto keyPair = makeKeyPair();
+        publicKeyHex = keyPair.publicKeyHex;
+
+        return makeMachineFile(
+            keyPair.privateKey.get(),
+            kLicenseKey,
+            payload);
+    }
+
     void testMachineFileVerifier() {
         testValidMachineFile();
         testMachineFileRejectsWrongPublicKey();

@@ -75,6 +75,10 @@ namespace KeygenSDKTests {
     void testLocalDataProtectionDoesNotModifyOutputOnProtectFailure();
     void testLocalDataProtectionDoesNotModifyOutputOnUnprotectFailure();
 
+    std::string makeMachineFileForClientTest(
+        const std::string& payload,
+        std::string& publicKeyHex);
+
     void testMachineFileVerifier();
 }
 
@@ -2100,6 +2104,52 @@ namespace {
         assert(http.postCallCount == 0);
     }
 
+    void testVerifyOfflineRejectsMachineIdMismatch() {
+        FakeHttpClient http;
+
+        const std::string payload =
+            R"({"data":{"id":"machine-from-file","type":"machines","attributes":{"fingerprint":"TEST-MACHINE-FINGERPRINT"}},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2999-01-01T00:00:00Z","ttl":3600}})";
+
+        std::string publicKeyHex;
+        const std::string machineFile =
+            KeygenSDKTests::makeMachineFileForClientTest(
+                payload,
+                publicKeyHex);
+
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
+        store->storedState =
+            KeygenSDK::LocalLicenseState{
+                .licenseId = "test-license-id",
+                .licenseKey = "TEST-MACHINE-FILE-LICENSE-KEY",
+                .machineId = "machine-from-local-state",
+                .machineFingerprint = "TEST-MACHINE-FINGERPRINT",
+                .machineFile = machineFile
+        };
+
+        auto clientConfig = testConfig();
+        clientConfig.accountPublicKey = publicKeyHex;
+
+        auto client =
+            KeygenSDK::ClientTestAccess::create(
+                clientConfig,
+                http,
+                std::move(store));
+
+        const auto loadResult = client.loadLocalLicense();
+
+        assert(loadResult.ok);
+
+        const auto result = client.verifyOffline();
+
+        assert(!result.ok);
+        assert(
+            result.error ==
+            KeygenSDK::ErrorCode::OfflineVerificationFailed);
+        assert(http.postCallCount == 0);
+    }
+
 } // namespace
 
 int main() {
@@ -2193,6 +2243,7 @@ int main() {
     testVerifyOfflineWithoutLocalLicense();
     testVerifyOfflineWithoutMachineFile();
     testVerifyOfflineRejectsInvalidMachineFile();
+    testVerifyOfflineRejectsMachineIdMismatch();
 
     KeygenSDKTests::testLocalLicenseStoreSaveAndLoad();
     KeygenSDKTests::testLocalLicenseStoreLoadMissingState();
