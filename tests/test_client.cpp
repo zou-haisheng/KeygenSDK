@@ -2150,6 +2150,51 @@ namespace {
         assert(http.postCallCount == 0);
     }
 
+    void testVerifyOfflineAcceptsMatchingMachineId() {
+        FakeHttpClient http;
+
+        const std::string payload =
+            R"({"data":{"id":"machine-for-local-state","type":"machines","attributes":{"fingerprint":"TEST-MACHINE-FINGERPRINT"}},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2999-01-01T00:00:00Z","ttl":3600}})";
+
+        std::string publicKeyHex;
+        const std::string machineFile =
+            KeygenSDKTests::makeMachineFileForClientTest(
+                payload,
+                publicKeyHex);
+
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
+        store->storedState =
+            KeygenSDK::LocalLicenseState{
+                .licenseId = "test-license-id",
+                .licenseKey = "TEST-MACHINE-FILE-LICENSE-KEY",
+                .machineId = "machine-for-local-state",
+                .machineFingerprint = "TEST-MACHINE-FINGERPRINT",
+                .machineFile = machineFile
+        };
+
+        auto clientConfig = testConfig();
+        clientConfig.accountPublicKey = publicKeyHex;
+
+        auto client =
+            KeygenSDK::ClientTestAccess::create(
+                clientConfig,
+                http,
+                std::move(store));
+
+        const auto loadResult = client.loadLocalLicense();
+
+        assert(loadResult.ok);
+        assert(client.hasLocalLicense());
+
+        const auto result = client.verifyOffline();
+
+        assert(result.ok);
+        assert(result.error == KeygenSDK::ErrorCode::None);
+        assert(http.postCallCount == 0);
+    }
+
 } // namespace
 
 int main() {
@@ -2244,6 +2289,7 @@ int main() {
     testVerifyOfflineWithoutMachineFile();
     testVerifyOfflineRejectsInvalidMachineFile();
     testVerifyOfflineRejectsMachineIdMismatch();
+    testVerifyOfflineAcceptsMatchingMachineId();
 
     KeygenSDKTests::testLocalLicenseStoreSaveAndLoad();
     KeygenSDKTests::testLocalLicenseStoreLoadMissingState();
