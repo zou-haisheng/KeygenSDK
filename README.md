@@ -368,9 +368,7 @@ public:
 };
 ```
 
-`verifyOffline()` is currently a placeholder.
-
-Offline verification is not implemented yet. It remains part of a later phase.
+`verifyOffline()` verifies the locally stored machine file without making an HTTP request. It checks the Keygen signature, decrypts and validates the machine payload, verifies its metadata and machine identity, and reports expired files with `LicenseExpired`.
 
 ---
 
@@ -556,7 +554,7 @@ The completed phases are:
 - [x] Phase 2 — Online license validation
 - [x] Phase 3 — Machine activation and deactivation
 - [x] Phase 4 — Local license cache and persistence
-- [ ] Phase 5 — Offline license verification
+- [x] Phase 5 — Offline license verification
 - [ ] Phase 6 — Final hardening, documentation, and release preparation
 
 Each phase is implemented and tested incrementally before moving to the next phase.
