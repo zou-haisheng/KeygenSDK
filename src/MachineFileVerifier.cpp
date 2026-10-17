@@ -716,7 +716,26 @@ namespace KeygenSDK {
                 "Machine file was issued in the future.");
         }
 
+        if (!payload["meta"].contains("ttl")) {
+            return verificationFailure(
+                "Machine file payload is missing TTL metadata.");
+        }
+
+        const Json& ttl = payload["meta"]["ttl"];
+
+        if (!ttl.is_null() &&
+            (!ttl.is_number_integer() ||
+                ttl.get<std::int64_t>() < 3600)) {
+            return verificationFailure(
+                "Machine file TTL must be null or an integer of at least 3600 seconds.");
+        }
+
         const Json& expiry = payload["meta"]["expiry"];
+
+        if (ttl.is_null() != expiry.is_null()) {
+            return verificationFailure(
+                "Machine file TTL and expiry metadata are inconsistent.");
+        }
 
         if (expiry.is_string()) {
             const auto parsedExpiry = parseIso8601Timestamp(

@@ -495,7 +495,7 @@ namespace KeygenSDKTests {
                 R"({"data":{"id":"machine-123","type":"machines","attributes":[]}})",
                 R"({"data":{"id":"machine-123","type":"machines"},"meta":[]})",
                 R"({"data":{"id":"machine-123","type":"machines"},"included":{}})",
-                R"({"data":{"id":"machine-123","type":"machines","attributes":{"fingerprint":"ANOTHER-MACHINE"}},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2999-01-01T00:00:00Z"}})",
+                R"({"data":{"id":"machine-123","type":"machines","attributes":{"fingerprint":"ANOTHER-MACHINE"}},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2999-01-01T00:00:00Z","ttl":3600}})"
             };
 
             for (const std::string& payload : invalidPayloads) {
@@ -526,11 +526,11 @@ namespace KeygenSDKTests {
             auto keyPair = makeKeyPair();
 
             const std::vector<std::string> invalidPayloads = {
-                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2999-01-01T00:00:00Z","expiry":"2999-01-02T00:00:00Z"}})",
-                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2000-01-01T00:00:00Z"}})",
-                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"not-a-timestamp","expiry":"2999-01-02T00:00:00Z"}})",
-                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":123}})",
-                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T-1:00:00Z","expiry":"2999-01-02T00:00:00Z"}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2999-01-01T00:00:00Z","expiry":"2999-01-02T00:00:00Z", "ttl":3600}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2000-01-01T00:00:00Z", "ttl":3600}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"not-a-timestamp","expiry":"2999-01-02T00:00:00Z", "ttl":3600}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":123, "ttl":3600}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T-1:00:00Z","expiry":"2999-01-02T00:00:00Z", "ttl":3600}})",
             };
 
             for (std::size_t i = 0; i < invalidPayloads.size(); ++i) {
@@ -581,6 +581,40 @@ namespace KeygenSDKTests {
             assert(verifiedPayload == noExpiryPayload);
         }
 
+        void testMachineFileRejectsInvalidTtlMetadata() {
+            auto keyPair = makeKeyPair();
+
+            const std::vector<std::string> invalidPayloads = {
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2999-01-01T00:00:00Z"}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2999-01-01T00:00:00Z","ttl":"3600"}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2999-01-01T00:00:00Z","ttl":3599}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2999-01-01T00:00:00Z","ttl":null}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":null,"ttl":3600}})"
+            };
+
+            for (const std::string& payload : invalidPayloads) {
+                const std::string machineFile = makeMachineFile(
+                    keyPair.privateKey.get(),
+                    kLicenseKey,
+                    payload);
+
+                std::string verifiedPayload = "must be cleared";
+
+                const auto result = KeygenSDK::MachineFileVerifier::verify(
+                    machineFile,
+                    keyPair.publicKeyHex,
+                    kLicenseKey,
+                    kMachineFingerprint,
+                    verifiedPayload);
+
+                assert(!result.ok);
+                assert(
+                    result.error ==
+                    KeygenSDK::ErrorCode::OfflineVerificationFailed);
+                assert(verifiedPayload.empty());
+            }
+        }
+
     } // namespace
 
     std::string makeMachineFileForClientTest(
@@ -604,6 +638,7 @@ namespace KeygenSDKTests {
         testMachineFileRejectsInvalidPayloadStructure();
         testMachineFileRejectsTamperedSignature();
         testMachineFileRejectsInvalidTimestamps();
+        testMachineFileRejectsInvalidTtlMetadata();
     }
 
 } // namespace KeygenSDKTests
