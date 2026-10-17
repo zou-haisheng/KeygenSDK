@@ -2199,7 +2199,7 @@ namespace {
         FakeHttpClient http;
 
         const std::string payload =
-            R"({"data":{"id":"machine-for-local-state","type":"machines","attributes":{"fingerprint":"TEST-MACHINE-FINGERPRINT"}},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2000-01-01T00:00:00Z","ttl":3600}})";
+            R"({"data":{"id":"machine-for-local-state","type":"machines","attributes":{"fingerprint":"TEST-MACHINE-FINGERPRINT"}},"meta":{"issued":"1999-12-31T23:00:00Z","expiry":"2000-01-01T00:00:00Z","ttl":3600}})";
 
         std::string publicKeyHex;
         const std::string machineFile =
