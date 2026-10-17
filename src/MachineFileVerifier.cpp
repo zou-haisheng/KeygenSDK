@@ -746,6 +746,11 @@ namespace KeygenSDK {
                     "Machine file expiry timestamp is invalid.");
             }
 
+            if (*parsedExpiry < *issued) {
+                return verificationFailure(
+                    "Machine file expiry precedes its issued timestamp.");
+            }
+
             if (*parsedExpiry < now) {
                 return Result::failure(
                     ErrorCode::LicenseExpired,

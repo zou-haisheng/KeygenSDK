@@ -527,10 +527,11 @@ namespace KeygenSDKTests {
 
             const std::vector<std::string> invalidPayloads = {
                 R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2999-01-01T00:00:00Z","expiry":"2999-01-02T00:00:00Z", "ttl":3600}})",
-                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":"2000-01-01T00:00:00Z", "ttl":3600}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"1999-12-31T23:00:00Z","expiry":"2000-01-01T00:00:00Z","ttl":3600}})",
                 R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"not-a-timestamp","expiry":"2999-01-02T00:00:00Z", "ttl":3600}})",
                 R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T00:00:00Z","expiry":123, "ttl":3600}})",
                 R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-01T-1:00:00Z","expiry":"2999-01-02T00:00:00Z", "ttl":3600}})",
+                R"({"data":{"id":"machine-123","type":"machines"},"meta":{"issued":"2020-01-02T00:00:00Z","expiry":"2020-01-01T00:00:00Z","ttl":3600}})"
             };
 
             for (std::size_t i = 0; i < invalidPayloads.size(); ++i) {
