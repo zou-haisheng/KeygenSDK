@@ -13,7 +13,7 @@ The current implementation has completed:
 - Machine activation and deactivation
 - Local license cache and persistence
 
-Offline license verification is intentionally not implemented yet and is planned for Phase 5.
+Offline license verification is implemented and tested in Phase 5.
 
 ---
 
@@ -542,7 +542,7 @@ The current implementation does not require collecting unnecessary hardware info
 
 Local persistence is implemented in Phase 4.
 
-Offline license verification is intentionally not implemented yet and will be addressed separately in Phase 5.
+Offline license verification is implemented in Phase 5 using signed and encrypted Keygen machine files.
 
 ---
 
@@ -563,15 +563,60 @@ Each phase is implemented and tested incrementally before moving to the next pha
 
 ## Phase 5 — Offline License Verification
 
-Phase 5 will address offline license verification.
+Phase 5 is complete.
 
-The design and implementation are intentionally kept separate from Phase 4.
+Phase 5 adds offline verification of Keygen machine files using the local license state persisted by Phase 4. Offline verification does not make an HTTP request.
 
-Phase 4 provides the persistent local activation state required by later functionality, but it does not itself make any offline validity decision.
+### Machine File Verification
 
-Phase 5 will determine how the persisted license state, machine identity, and other required information can be used for offline verification.
+The SDK verifies and decrypts encrypted Keygen machine files using the configured account public key, local license key, and machine fingerprint.
 
-No offline verification behavior should be assumed from the current Phase 4 implementation.
+The verifier:
+
+- Requires the `MACHINE FILE` wrapper and the supported `aes-256-gcm+ed25519` algorithm
+- Verifies the Ed25519 signature over `machine/` followed by the encrypted payload
+- Decrypts the payload using AES-256-GCM
+- Validates the decrypted JSON:API machine resource, including its non-empty ID and `machines` type
+- Validates optional JSON:API structures such as `attributes`, `relationships`, `meta`, and `included`
+- Checks the machine fingerprint when the payload includes one
+
+### Machine File Metadata
+
+The decrypted payload must contain `meta.issued`, `meta.expiry`, and `meta.ttl`.
+
+The SDK validates that:
+
+- `issued` and a non-null `expiry` use valid ISO 8601 timestamps
+- `issued` is not in the future
+- `expiry` does not precede `issued`
+- `ttl` is either `null` or an integer of at least 3600 seconds
+- `ttl` and `expiry` are both `null` or both non-null
+- An expired machine file returns `LicenseExpired`
+
+A `null` TTL and `null` expiry represent a machine file with no expiry.
+
+### Client Integration
+
+`Client::verifyOffline()` loads the persisted local license state when needed, then verifies its machine file.
+
+It also checks that the machine ID in the verified payload matches the locally stored machine ID. Missing offline data, invalid machine files, mismatched machine IDs, and expired files return failure results. The method does not contact the Keygen API.
+
+During activation, the checked-out machine file is saved with the local license state so it is available for later offline verification.
+
+### Phase 5 Testing
+
+The native `KeygenSDKTests` suite covers:
+
+- Valid machine file verification
+- Invalid wrappers, unsupported algorithms, invalid signatures, and incorrect keys
+- Invalid decrypted JSON and JSON:API resource structures
+- Invalid, future, and out-of-order timestamps
+- Expired files and files with no expiry
+- Invalid TTL metadata
+- Machine fingerprint and machine ID mismatches
+- Offline verification without local state or a machine file
+- Successful and expired Client-level offline verification
+- Offline verification without HTTP requests
 
 ---
 
