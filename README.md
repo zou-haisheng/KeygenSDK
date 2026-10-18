@@ -521,6 +521,19 @@ The current tests cover:
 - Temporary file cleanup
 - Client persistence lifecycle
 
+### Offline Machine File Verification
+
+- Valid and invalid machine file wrappers
+- Supported algorithm validation
+- Ed25519 signature verification
+- AES-256-GCM decryption and incorrect-key handling
+- Decrypted JSON and JSON:API structure validation
+- Machine file timestamp, expiry, and TTL validation
+- Machine fingerprint and machine ID matching
+- Missing local license state and missing offline machine file
+- Client-level offline verification success and failure paths
+- Verification without HTTP requests
+
 ---
 
 ## Security Notes
