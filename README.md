@@ -1,3 +1,5 @@
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 # KeygenSDK
 
 A lightweight, modern C++ 20 client SDK for [Keygen CE](https://keygen.sh) licensing on
