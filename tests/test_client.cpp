@@ -5,6 +5,7 @@
 #include <KeygenSDK/LocalLicenseStore.h>
 
 #include <cassert>
+#include <chrono>
 #include <filesystem>
 #include <string>
 #include <utility>
@@ -1913,13 +1914,19 @@ namespace {
         const auto testDirectory =
             std::filesystem::temp_directory_path() /
             "KeygenSDKTests" /
-            "ClientDefaultLocalLicenseStore";
+            ("ClientDefaultLocalLicenseStore-" +
+             std::to_string(
+                 std::chrono::system_clock::now()
+                     .time_since_epoch()
+                     .count()));
 
         std::error_code cleanupError;
 
         std::filesystem::remove_all(
             testDirectory,
             cleanupError);
+
+        assert(!cleanupError);
 
         const auto licensePath =
             testDirectory /

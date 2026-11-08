@@ -1,347 +1,130 @@
 # KeygenSDK
 
-A small, reusable C++20 client SDK for Keygen CE licensing on Windows, designed for CMake/vcpkg integration.
+A lightweight, modern C++ 20 client SDK for [Keygen CE](https://keygen.sh) licensing on
+Windows. It lets C++ applications validate licenses, activate and deactivate machines,
+persist license state locally, and verify licenses offline — using CMake and vcpkg for
+clean integration.
 
-## Project Status
+## Features
 
-The project is developed incrementally in phases.
+- **Online license validation** — validate a license key against the Keygen API.
+- **Machine activation / deactivation** — activate a machine, then deactivate it later.
+- **Local license persistence** — save and restore activation state across process
+  lifetimes, protected with Windows DPAPI.
+- **Offline license verification** — verify a checked-out machine file without any
+  network access, using Ed25519 signatures and AES-256-GCM.
 
-The current implementation has completed:
+## Requirements
 
-- SDK foundation
-- Online license validation
-- Machine activation and deactivation
-- Local license cache and persistence
+- **C++20** compiler (MSVC; the project is developed with Visual Studio 2026).
+- **CMake 3.25+** (Visual Studio 2026 bundles a compatible CMake 4.x).
+- **vcpkg** in manifest mode with the `x64-windows` triplet.
+- **Windows x64** (the SDK is currently Windows-only).
 
-Offline license verification is implemented and tested in Phase 5.
+## Dependencies
 
----
+Managed through the vcpkg manifest ([`vcpkg.json`](vcpkg.json)):
 
-### Phase 1 — Foundation
+- `curl` — HTTP client.
+- `nlohmann-json` — JSON parsing and serialization.
+- `openssl` — Ed25519 signature verification and AES-256-GCM decryption for offline
+  machine files.
 
-Phase 1 establishes the library boundary, C++20 build, vcpkg manifest, libcurl HTTP foundation, result/error model, tests, and CMake package export.
+Windows builds additionally use the system APIs `Crypt32` (DPAPI), `bcrypt`, and
+`advapi32` for machine identity and local data protection.
 
-It includes:
+## Building
 
-- C++20 project structure
-- CMake build system
-- vcpkg manifest
-- libcurl HTTP foundation
-- Result and error model
-- Public SDK headers
-- CMake package export
-- Basic test infrastructure
+Configure and build with the provided CMake presets:
 
-The Keygen API endpoints and JSON contract were intentionally not guessed in this phase.
+```powershell
+# Point vcpkg at your vcpkg installation
+$env:VCPKG_ROOT = "C:\path\to\vcpkg"
 
----
+# Configure (Visual Studio generator, x64)
+cmake --preset vs2026-x64
 
-### Phase 2 — Online License Validation
+# Build Debug and Release
+cmake --build build-vs --config Debug
+cmake --build build-vs --config Release
 
-Phase 2 binds the SDK to the verified Keygen CE 1.8 API for online license validation.
+# Run tests
+ctest --test-dir .\build-vs -C Debug --output-on-failure
+```
 
-The SDK supports:
-
-- Online license-key validation
-- JSON:API request/response handling
-- Keygen license error mapping
-- Configuration validation
-- HTTP and server error handling
-- License ID extraction from successful validation responses
-- Unit tests using a fake HTTP client
-
-The validation endpoint is:
+A successful test run reports:
 
 ```text
-POST /v1/accounts/<accountId>/licenses/actions/validate-key
+100% tests passed, 0 tests failed
 ```
 
-The license key is sent in the JSON:API request body rather than being hardcoded into the SDK.
+## Configuration
 
-### Phase 3 — Machine Activation
+All SDK options are passed through the `KeygenSDK::Config` struct:
 
-Phase 3 adds machine activation and deactivation based on the verified Keygen machine API.
+| Field | Type | Description |
+|---|---|---|
+| `host` | `std::string` | Keygen server URL. Must use `https://`. |
+| `accountId` | `std::string` | Your Keygen account ID. |
+| `accountPublicKey` | `std::string` | Hex-encoded Ed25519 account public key. Required only for `verifyOffline()`. |
+| `timeoutSeconds` | `long` | HTTP timeout in seconds. Defaults to `15`. |
+| `localLicensePath` | `std::filesystem::path` | Where to persist local license state. Empty means the default path. |
 
-The SDK supports:
-
-- Machine fingerprint generation through `MachineIdentity`
-- License validation before activation
-- Machine creation through the Keygen Machines API
-- License-key authorization for machine creation and deletion
-- Validation of the returned machine resource
-- Local activation state tracking
-- Machine deactivation
-- Safe preservation of local activation state when deactivation fails
-- Unit tests covering activation and deactivation success and failure paths
-
-Machine activation uses:
-
-```text
-POST /v1/accounts/<accountId>/machines
-```
-
-Machine deactivation uses:
-
-```text
-DELETE /v1/accounts/<accountId>/machines/<machineId>
-```
-
-The current Phase 3 implementation keeps the machine ID and license key in the in-memory client state. Persistent local license storage is intentionally deferred to Phase 4.
-
----
-
-## Phase 4 — Local License Cache and Persistence
-Phase 4 adds persistent local storage for the activation state.
-
-The goal of this phase is to allow an activated client to safely persist its local license state and restore it in a later process lifetime.
-
-Phase 4 is now complete.
-
-### Local License State
-
-The persisted state contains:
-
-- License ID
-- License key
-- Machine ID
-- Machine fingerprint
-
-The SDK validates that all required fields are present and non-empty before accepting a local license state.
-
-### JSON Serialization
-
-The local license state uses a versioned JSON representation.
-
-Current schema version:
-
-```text
-1
-```
-
-The logical structure is:
-
-```json
-{
-    "version": 1,
-    "license": {
-        "id": "...",
-        "key": "..."
-    },
-    "machine": {
-        "id": "...",
-        "fingerprint": "..."
-    }
-}
-```
-The serializer validates:
-
-- JSON object structure
-- Schema version
-- Required sections
-- Required field types
-- Empty required fields
-- Unsupported schema versions
-
-Unknown fields are currently allowed so that the schema can evolve without unnecessarily rejecting additional data.
-
-### Windows DPAPI Protection
-
-Persistent local license data is protected using Windows Data Protection API (DPAPI).
-
-The storage flow is:
-
-```text
-LocalLicenseState
-       ↓
-JSON serialization
-       ↓
-Windows DPAPI encryption
-       ↓
-license.dat
-```
-
-The SDK does not intentionally store the local license key or other local license state as plaintext on disk.
-
-The current implementation uses the Windows current-user DPAPI scope rather than machine-wide protection.
-
-### FileLocalLicenseStore
-
-Persistent storage is separated behind the ILocalLicenseStore interface.
-
-The current file-based implementation is:
-
-```cpp
-KeygenSDK::FileLocalLicenseStore
-```
-
-It provides:
-
-```cpp
-Result load(LocalLicenseState& state) const;
-Result save(const LocalLicenseState& state);
-Result remove();
-```
-
-The store handles:
-
-- Loading persisted state
-- Saving persisted state
-- Removing persisted state
-- Missing-state detection
-- Directory creation
-- DPAPI protection and unprotection
-- JSON serialization and deserialization
-- Invalid or tampered data detection
-
-### Atomic-Safe Persistence
-
-Saving local state does not directly truncate and overwrite the final license file.
-
-The current save flow is:
-
-```text
-serialize
-    ↓
-DPAPI protect
-    ↓
-create temporary file
-    ↓
-write protected data
-    ↓
-flush
-    ↓
-replace target file
-```
-
-On Windows, the final replacement uses:
-
-```text
-MoveFileExW(
-    ...,
-    MOVEFILE_REPLACE_EXISTING |
-    MOVEFILE_WRITE_THROUGH
-)
-```
-
-Temporary files are cleaned up when a save operation fails.
-
-This reduces the risk of leaving a partially written final license file when persistence is interrupted.
-
-### Default Local License Path
-
-If no explicit local license path is configured, the SDK uses:
+The default local license path is:
 
 ```text
 %LOCALAPPDATA%\KeygenSDK\license.dat
 ```
 
-The path can also be customized through:
-
-```cpp
-KeygenSDK::Config::localLicensePath
-```
-
-For example:
-
 ```cpp
 KeygenSDK::Config config{
     .host = "https://example.com",
     .accountId = "your-account-id",
+    .accountPublicKey = "your-account-ed25519-public-key-hex",
     .timeoutSeconds = 15,
     .localLicensePath = "C:/MyApplication/license.dat"
 };
 ```
 
-The parent directory is created automatically when saving local license state.
+`accountPublicKey` is only needed when using offline verification; it can be omitted for
+online-only workflows. License keys and account-specific values are supplied at runtime
+and are never hardcoded into the SDK.
 
-### Client Lifecycle Integration
-
-The persistent store is integrated into the Client lifecycle.
-
-Activation now follows:
-
-```text
-validate license online
-        ↓
-generate machine fingerprint
-        ↓
-create machine remotely
-        ↓
-create local license state
-        ↓
-save local license state
-        ↓
-mark client as locally activated
-```
-
-If persistent storage fails, the client does not mark the local license as active.
-
-Local license state can be restored with:
+## Quick Start
 
 ```cpp
-client.loadLocalLicense();
+#include <KeygenSDK/KeygenSDK.h>
+
+#include <iostream>
+
+int main() {
+    KeygenSDK::Config config{
+        .host = "https://example.com",
+        .accountId = "your-account-id",
+        .accountPublicKey = "your-account-ed25519-public-key-hex",
+    };
+
+    KeygenSDK::Client client(std::move(config));
+
+    const KeygenSDK::Result result =
+        client.validateOnline("YOUR_LICENSE_KEY");
+
+    if (result.ok) {
+        std::cout << "License is valid\n";
+    } else {
+        std::cout << "Validation failed: "
+                  << KeygenSDK::toString(result.error) << '\n';
+    }
+
+    return 0;
+}
 ```
 
-A missing local state is treated as a normal "no local license state" condition rather than as a corrupted state.
+## API
 
-Deactivation follows:
+### Client
 
-```text
-delete remote machine
-        ↓
-remove local license state
-        ↓
-clear in-memory activation state
-```
-
-If remote deactivation succeeds but local file removal fails, the in-memory activation state is still cleared because the remote deactivation has already succeeded.
-
-## Phase 4 Testing
-
-Phase 4 includes tests for:
-
-- Local license state validation
-- JSON serialization and deserialization
-- Unsupported schema versions
-- Missing required fields
-- Invalid field types
-- Empty required fields
-- Unknown JSON fields
-- DPAPI protection and unprotection
-- Invalid protected data
-- Protection failure behavior
-- File-based save and load
-- Missing local state
-- Local state removal
-- Tampered persisted data
-- Plaintext storage checks
-- Atomic replacement
-- Temporary file cleanup
-- Client local-state loading
-- Activation persistence failures
-- Real client persistence lifecycle
-
-The end-to-end persistence test covers:
-
-```text
-Client
-  ↓
-FileLocalLicenseStore
-  ↓
-LocalLicenseSerializer
-  ↓
-Windows DPAPI
-  ↓
-license.dat
-```
-
-and the reverse loading path.
-
----
-
-## Current API
-
-The public client API currently includes:
+The primary entry point is `KeygenSDK::Client`:
 
 ```cpp
 class Client {
@@ -355,12 +138,8 @@ public:
     Client(Client&&) noexcept;
     Client& operator=(Client&&) noexcept;
 
-    [[nodiscard]] Result validateOnline(
-        const std::string& licenseKey);
-
-    [[nodiscard]] Result activate(
-        const std::string& licenseKey);
-
+    [[nodiscard]] Result validateOnline(const std::string& licenseKey);
+    [[nodiscard]] Result activate(const std::string& licenseKey);
     [[nodiscard]] Result verifyOffline();
     [[nodiscard]] Result deactivate();
     [[nodiscard]] Result loadLocalLicense();
@@ -368,78 +147,196 @@ public:
 };
 ```
 
-`verifyOffline()` verifies the locally stored machine file without making an HTTP request. It checks the Keygen signature, decrypts and validates the machine payload, verifies its metadata and machine identity, and reports expired files with `LicenseExpired`.
+### Result
 
----
-
-## Configuration
-
-The SDK requires runtime configuration for the Keygen server and account:
+Every operation returns a `KeygenSDK::Result`:
 
 ```cpp
-KeygenSDK::Config config{
-    .host = "https://example.com",
-    .accountId = "your-account-id",
-    .timeoutSeconds = 15
+struct Result {
+    bool ok{false};
+    ErrorCode error{ErrorCode::Unknown};
+    std::string message;
+
+    [[nodiscard]] bool success() const noexcept { return ok; }
+    explicit operator bool() const noexcept { return ok; }
 };
 ```
 
-Optional local license storage configuration:
+Check `result.ok` (or use `result` directly in a boolean context) to determine success.
+On failure, `result.error` and `result.message` describe the cause.
 
-```xpp
-KeygenSDK::Config config{
-    .host = "https://example.com",
-    .accountId = "your-account-id",
-    .timeoutSeconds = 15,
-    .localLicensePath = "C:/MyApplication/license.dat"
+### Error codes
+
+```cpp
+enum class ErrorCode {
+    None,
+    InvalidConfiguration,
+    NetworkError,
+    InvalidLicense,
+    LocalStateNotFound,
+    LocalStorageError,
+    LicenseExpired,
+    LicenseSuspended,
+    LicenseRevoked,
+    LicenseOverdue,
+    MachineLimitReached,
+    ActivationFailed,
+    OfflineDataMissing,
+    OfflineVerificationFailed,
+    InvalidResponse,
+    ServerError,
+    Unknown,
 };
 ```
 
-If `localLicensePath` is empty, the SDK uses:
+Use `KeygenSDK::toString(code)` to get a stable, human-readable name for an error code.
+
+### Advanced types
+
+The following lower-level types are also installed as public headers for advanced use:
+`HttpClient` / `IHttpClient`, `MachineIdentity`, `MachineFileVerifier`,
+`LocalLicenseState`, `ILocalLicenseStore`, `FileLocalLicenseStore`,
+`LocalLicenseSerializer`, and `LocalDataProtection`.
+
+## Usage
+
+### Online license validation
+
+Validates a license key against the Keygen `validate-key` endpoint:
 
 ```text
-%LOCALAPPDATA%\KeygenSDK\license.dat
+POST /v1/accounts/<accountId>/licenses/actions/validate-key
 ```
 
-License keys and account-specific values are supplied at runtime and are not hardcoded into the SDK.
-
----
-
-## Dependencies
-
-Manifest mode dependencies:
-
-- `curl`
-- `nlohmann-json`
-
-Windows builds also use:
-
-- Windows Cryptography API (Crypt32)
-- Windows system APIs for machine identity and local data protection
-
----
-
-## Build with Visual Studio and CMake
-
-The project is intended to be configured and built through Visual Studio's built-in CMake integration.
-
-After configuring and building the project in Visual Studio, tests can be run with:
-
-```powershell
-ctest --test-dir .\build-vs -C Debug --output-on-failure
+```cpp
+const KeygenSDK::Result result =
+    client.validateOnline("YOUR_LICENSE_KEY");
 ```
 
-A successful test run should report:
+License-specific error conditions (expired, suspended, overdue, and so on) are mapped to
+their corresponding `ErrorCode` values.
+
+### Machine activation
+
+`activate()` validates the license, generates a machine fingerprint, creates a machine on
+the Keygen server, checks out the machine file, and persists the resulting local license
+state:
+
+```cpp
+const KeygenSDK::Result result =
+    client.activate("YOUR_LICENSE_KEY");
+
+if (result.ok && client.hasLocalLicense()) {
+    // The machine is activated and the state is persisted locally.
+}
+```
+
+The machine fingerprint is derived from the Windows `MachineGuid` (hashed with SHA-256)
+and is not raw hardware data.
+
+### Machine deactivation
+
+`deactivate()` removes the remote machine and clears the local state:
+
+```cpp
+const KeygenSDK::Result result = client.deactivate();
+```
+
+If the remote deactivation succeeds but local cleanup fails, the in-memory activation
+state is still cleared.
+
+### Offline license verification
+
+`verifyOffline()` verifies the locally stored machine file without making any HTTP
+request:
+
+```cpp
+const KeygenSDK::Result result = client.verifyOffline();
+
+if (result.ok) {
+    // The offline machine file is valid and unexpired.
+}
+```
+
+It checks the Ed25519 signature, decrypts and validates the machine payload, verifies its
+metadata and machine identity, and returns `LicenseExpired` for expired files.
+
+### Restoring a local license
+
+Restore previously persisted activation state in a later process lifetime:
+
+```cpp
+const KeygenSDK::Result result = client.loadLocalLicense();
+
+if (result.ok && client.hasLocalLicense()) {
+    // Local license state was restored.
+}
+```
+
+## Local License Persistence
+
+The persisted state contains the license ID, license key, machine ID, machine
+fingerprint, and (after activation) the checked-out machine file.
+
+### Schema
+
+The state uses a versioned JSON representation. The current schema version is `2`:
+
+```json
+{
+    "version": 2,
+    "license": {
+        "id": "...",
+        "key": "..."
+    },
+    "machine": {
+        "id": "...",
+        "fingerprint": "...",
+        "file": "..."
+    }
+}
+```
+
+Version `1` (without `machine.file`) is still accepted for backward compatibility with
+states persisted before offline machine files were introduced.
+
+### DPAPI protection
+
+The serialized state is protected with the Windows Data Protection API (DPAPI) in the
+current-user scope before being written to disk:
 
 ```text
-100% tests passed, 0 tests failed
+LocalLicenseState → JSON → DPAPI → license.dat
 ```
 
----
+The SDK does not store the license key or other local license state as plaintext on disk.
+
+### Atomic writes
+
+Saves go through a temporary file that is flushed and then atomically moved over the
+target using `MoveFileExW(MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)`. Temporary
+files are cleaned up on failure, reducing the risk of leaving a partially written license
+file.
+
+## Offline Verification Details
+
+The SDK verifies and decrypts Keygen machine files using the configured account public
+key, the local license key, and the machine fingerprint.
+
+The verifier:
+
+- Requires the `MACHINE FILE` wrapper and the `aes-256-gcm+ed25519` algorithm.
+- Verifies the Ed25519 signature over `machine/` followed by the encrypted payload.
+- Derives the AES-256-GCM key as `SHA256(licenseKey + machineFingerprint)`.
+- Decrypts the payload using AES-256-GCM (12-byte IV, 16-byte authentication tag).
+- Validates the decrypted JSON:API machine resource, including its non-empty ID and
+  `machines` type, plus its `meta.issued`, `meta.expiry`, and `meta.ttl` metadata.
+- Reports expired files with `LicenseExpired`.
 
 ## Install and Consume
 
-The project exports a CMake package:
+The project exports a CMake package. Install it and consume it from another CMake
+project:
 
 ```cmake
 find_package(KeygenSDK CONFIG REQUIRED)
@@ -451,188 +348,41 @@ target_link_libraries(
 )
 ```
 
-Then include the public SDK header:
+Then include the public header:
 
 ```cpp
 #include <KeygenSDK/KeygenSDK.h>
 ```
 
----
+The installed package declares `find_dependency` for `curl`, `nlohmann-json`, and
+`openssl`, so the consuming project must provide those packages through vcpkg (with the
+same `x64-windows` triplet) or otherwise make them available to CMake.
 
 ## Testing
 
-The project uses a lightweight custom test harness rather than GoogleTest.
+The project uses a lightweight custom test harness (no GoogleTest) and a fake HTTP client,
+so the suite runs without a live Keygen server.
 
-The test suite uses a fake HTTP client to exercise client behavior without requiring a live Keygen server.
+Run the suite with:
 
-The current tests cover:
+```powershell
+ctest --test-dir .\build-vs -C Debug --output-on-failure
+```
 
-### Online Validation
-- Valid licenses
-- Expired licenses
-- Suspended licenses
-- Overdue licenses
-- Invalid licenses
-- HTTP failures
-- Server failures
-- Invalid JSON
-- Invalid API responses
-- Configuration errors
-- License error mapping
-
-### Machine Activation
-- Successful activation
-- License validation failures
-- Machine creation failures
-- Invalid machine responses
-- Invalid machine types
-- Missing machine fingerprints
-- HTTP failures
-- Server failures
-- Local activation state updates
-- Local persistence failures
-
-### Machine Deactivation
-- Successful deactivation
-- HTTP failures
-- Invalid response status
-- Missing local license
-- Missing machine ID
-- Missing license key
-- Local persistence removal failures
-- Preservation and clearing of local state according to the operation result
-
-### Local License Persistence
-- Local license state validation
-- JSON serialization
-- JSON deserialization
-- Schema version validation
-- Invalid JSON
-- Missing required fields
-- Invalid field types
-- Unknown fields
-- DPAPI round-trip
-- Invalid protected data
-- File save/load/remove
-- Missing state
-- Tampered data
-- Plaintext storage checks
-- Atomic file replacement
-- Temporary file cleanup
-- Client persistence lifecycle
-
-### Offline Machine File Verification
-
-- Valid and invalid machine file wrappers
-- Supported algorithm validation
-- Ed25519 signature verification
-- AES-256-GCM decryption and incorrect-key handling
-- Decrypted JSON and JSON:API structure validation
-- Machine file timestamp, expiry, and TTL validation
-- Machine fingerprint and machine ID matching
-- Missing local license state and missing offline machine file
-- Client-level offline verification success and failure paths
-- Verification without HTTP requests
-
----
+The suite covers online validation (valid, expired, suspended, overdue, invalid licenses;
+HTTP and server failures; invalid responses), machine activation and deactivation
+(success and failure paths), local persistence (serialization, schema versions, DPAPI,
+atomic replacement, temporary-file cleanup, tampered data), and offline machine-file
+verification (Ed25519 and AES-256-GCM, timestamps, TTL, fingerprint and machine-ID
+matching).
 
 ## Security Notes
 
-The SDK does not hardcode:
-
-- License keys
-- Account credentials
-- Authentication tokens
-- Private keys
-
-Persistent local license state is protected using Windows DPAPI.
-
-The local license cache is intended to protect the stored activation state from being kept as plaintext on disk.
-
-Machine identification is represented by a fingerprint generated by `MachineIdentity`.
-
-The current implementation does not require collecting unnecessary hardware information for the activation flow.
-
-Local persistence is implemented in Phase 4.
-
-Offline license verification is implemented in Phase 5 using signed and encrypted Keygen machine files.
-
----
-
-## Development Roadmap
-
-The completed phases are:
-
-- [x] Phase 1 — SDK foundation
-- [x] Phase 2 — Online license validation
-- [x] Phase 3 — Machine activation and deactivation
-- [x] Phase 4 — Local license cache and persistence
-- [x] Phase 5 — Offline license verification
-- [ ] Phase 6 — Final hardening, documentation, and release preparation
-
-Each phase is implemented and tested incrementally before moving to the next phase.
-
----
-
-## Phase 5 — Offline License Verification
-
-Phase 5 is complete.
-
-Phase 5 adds offline verification of Keygen machine files using the local license state persisted by Phase 4. Offline verification does not make an HTTP request.
-
-### Machine File Verification
-
-The SDK verifies and decrypts encrypted Keygen machine files using the configured account public key, local license key, and machine fingerprint.
-
-The verifier:
-
-- Requires the `MACHINE FILE` wrapper and the supported `aes-256-gcm+ed25519` algorithm
-- Verifies the Ed25519 signature over `machine/` followed by the encrypted payload
-- Decrypts the payload using AES-256-GCM
-- Validates the decrypted JSON:API machine resource, including its non-empty ID and `machines` type
-- Validates optional JSON:API structures such as `attributes`, `relationships`, `meta`, and `included`
-- Checks the machine fingerprint when the payload includes one
-
-### Machine File Metadata
-
-The decrypted payload must contain `meta.issued`, `meta.expiry`, and `meta.ttl`.
-
-The SDK validates that:
-
-- `issued` and a non-null `expiry` use valid ISO 8601 timestamps
-- `issued` is not in the future
-- `expiry` does not precede `issued`
-- `ttl` is either `null` or an integer of at least 3600 seconds
-- `ttl` and `expiry` are both `null` or both non-null
-- An expired machine file returns `LicenseExpired`
-
-A `null` TTL and `null` expiry represent a machine file with no expiry.
-
-### Client Integration
-
-`Client::verifyOffline()` loads the persisted local license state when needed, then verifies its machine file.
-
-It also checks that the machine ID in the verified payload matches the locally stored machine ID. Missing offline data, invalid machine files, mismatched machine IDs, and expired files return failure results. The method does not contact the Keygen API.
-
-During activation, the checked-out machine file is saved with the local license state so it is available for later offline verification.
-
-### Phase 5 Testing
-
-The native `KeygenSDKTests` suite covers:
-
-- Valid machine file verification
-- Invalid wrappers, unsupported algorithms, invalid signatures, and incorrect keys
-- Invalid decrypted JSON and JSON:API resource structures
-- Invalid, future, and out-of-order timestamps
-- Expired files and files with no expiry
-- Invalid TTL metadata
-- Machine fingerprint and machine ID mismatches
-- Offline verification without local state or a machine file
-- Successful and expired Client-level offline verification
-- Offline verification without HTTP requests
-
----
+The SDK does not hardcode license keys, account credentials, authentication tokens, or
+private keys. Local license state is protected with Windows DPAPI, and machine
+identification uses a hashed fingerprint rather than raw hardware data. Client-side
+verification is not a substitute for server-side license enforcement.
 
 ## License
 
-This project is currently under active development.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
