@@ -21,6 +21,27 @@
           "value": "x64-windows"
         }
       }
+    },
+    {
+      "name": "vs2026-x86",
+      "displayName": "Visual Studio 2026 - x86",
+      "description": "KeygenSDK using Visual Studio 2026, MSVC x86 (Win32) and vcpkg Manifest Mode",
+      "generator": "Visual Studio 18 2026",
+      "architecture": {
+        "value": "Win32",
+        "strategy": "set"
+      },
+      "binaryDir": "${sourceDir}/build-vs-x86",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": {
+          "type": "FILEPATH",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        },
+        "VCPKG_TARGET_TRIPLET": {
+          "type": "STRING",
+          "value": "x86-windows"
+        }
+      }
     }
   ],
   "buildPresets": [
@@ -33,12 +54,30 @@
       "name": "vs2026-release",
       "configurePreset": "vs2026-x64",
       "configuration": "Release"
+    },
+    {
+      "name": "vs2026-x86-debug",
+      "configurePreset": "vs2026-x86",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs2026-x86-release",
+      "configurePreset": "vs2026-x86",
+      "configuration": "Release"
     }
   ],
   "testPresets": [
     {
       "name": "vs2026-debug-tests",
       "configurePreset": "vs2026-x64",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "vs2026-x86-debug-tests",
+      "configurePreset": "vs2026-x86",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true

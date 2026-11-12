@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg-configuration.schema.json",
+  "registries": [
+    {
+      "kind": "git",
+      "repository": "https://github.com/zou-haisheng/KeygenSDK",
+      "baseline": "<commit-that-contains-versions-and-ports>",
+      "packages": [ "keygensdk" ]
+    }
+  ]
+}

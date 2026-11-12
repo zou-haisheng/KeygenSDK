@@ -1912,7 +1912,7 @@ namespace {
         })";
 
         const auto testDirectory =
-            std::filesystem::temp_directory_path() /
+            std::filesystem::current_path() /
             "KeygenSDKTests" /
             ("ClientDefaultLocalLicenseStore-" +
              std::to_string(

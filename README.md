@@ -20,8 +20,8 @@ clean integration.
 
 - **C++20** compiler (MSVC; the project is developed with Visual Studio 2026).
 - **CMake 3.25+** (Visual Studio 2026 bundles a compatible CMake 4.x).
-- **vcpkg** in manifest mode with the `x64-windows` triplet.
-- **Windows x64** (the SDK is currently Windows-only).
+- **vcpkg** in manifest mode (`x64-windows` or `x86-windows` triplet).
+- **Windows (x86 and x64)**.
 
 ## Dependencies
 
@@ -52,6 +52,11 @@ cmake --build build-vs --config Release
 
 # Run tests
 ctest --test-dir .\build-vs -C Debug --output-on-failure
+
+# 32-bit (x86) build
+cmake --preset vs2026-x86
+cmake --build build-vs-x86 --config Debug
+ctest --test-dir .\build-vs-x86 -C Debug --output-on-failure
 ```
 
 A successful test run reports:

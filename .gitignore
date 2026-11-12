@@ -1,8 +1,10 @@
 /build/
 /out/
 /.vs/
-/build-vs/
+/build-vs*/
 /vcpkg_installed/
+/keygensdk-test-*.json
+/KeygenSDKTests/
 *.user
 *.suo
 *.vcxproj.user

@@ -5,7 +5,7 @@ All notable changes to KeygenSDK are documented in this file.
 ## [1.0.0] - 2026-11-08
 
 ### Added
-- C++20 client SDK for Keygen CE licensing (Windows x64).
+- C++20 client SDK for Keygen CE licensing (Windows x86/x64).
 - Online license validation (`Client::validateOnline`) via the Keygen `validate-key` endpoint.
 - Machine activation and deactivation (`Client::activate`, `Client::deactivate`).
 - Machine fingerprint generation (`MachineIdentity`) from the Windows MachineGuid (SHA-256).
@@ -33,7 +33,7 @@ All notable changes to KeygenSDK are documented in this file.
   clarified the MIT license and downstream vcpkg requirement.
 
 ### Platform Support
-- Windows (x64) only. vcpkg manifest mode with the `x64-windows` triplet.
+- Windows (x86 and x64). vcpkg manifest mode (`x64-windows` / `x86-windows` triplet).
 
 ### Known Limitations
 - `Client::activate` does not clean up the remote machine if the machine-file checkout

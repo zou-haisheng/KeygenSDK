@@ -12,7 +12,7 @@ namespace KeygenSDKTests {
         std::filesystem::path makeTestPath(
             const char* name) {
 
-            return std::filesystem::temp_directory_path() / name;
+            return std::filesystem::current_path() / name;
         }
 
         KeygenSDK::LocalLicenseState makeTestState() {

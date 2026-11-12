@@ -16,8 +16,8 @@
 
 - **C++20** 编译器（MSVC；项目基于 Visual Studio 2026 开发）。
 - **CMake 3.25+**（Visual Studio 2026 内置兼容的 CMake 4.x）。
-- **vcpkg**（manifest 模式，使用 `x64-windows` triplet）。
-- **Windows x64**（SDK 目前仅支持 Windows）。
+- **vcpkg**（manifest 模式，`x64-windows` 或 `x86-windows` triplet）。
+- **Windows（x86 与 x64）**。
 
 ## 依赖
 
@@ -46,6 +46,11 @@ cmake --build build-vs --config Release
 
 # 运行测试
 ctest --test-dir .\build-vs -C Debug --output-on-failure
+
+# 32 位（x86）构建
+cmake --preset vs2026-x86
+cmake --build build-vs-x86 --config Debug
+ctest --test-dir .\build-vs-x86 -C Debug --output-on-failure
 ```
 
 测试通过时会输出：
