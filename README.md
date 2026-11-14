@@ -15,6 +15,8 @@ clean integration.
   lifetimes, protected with Windows DPAPI.
 - **Offline license verification** — verify a checked-out machine file without any
   network access, using Ed25519 signatures and AES-256-GCM.
+- **Optional C API bridge** — an `extern "C"` ABI for using the license client from C and
+  other FFI languages (`KEYGENSDK_BUILD_C_API`).
 
 ## Requirements
 
@@ -57,6 +59,14 @@ ctest --test-dir .\build-vs -C Debug --output-on-failure
 cmake --preset vs2026-x86
 cmake --build build-vs-x86 --config Debug
 ctest --test-dir .\build-vs-x86 -C Debug --output-on-failure
+```
+
+To build the optional C ABI bridge, add `-DKEYGENSDK_BUILD_C_API=ON` at configure time.
+This enables the C header and a `KeygenSDKCApiExample` C example target:
+
+```powershell
+cmake --preset vs2026-x64 -DKEYGENSDK_BUILD_C_API=ON
+cmake --build build-vs --config Debug --target KeygenSDKCApiExample
 ```
 
 A successful test run reports:
@@ -364,6 +374,65 @@ Then include the public header:
 The installed package declares `find_dependency` for `curl`, `nlohmann-json`, and
 `openssl`, so the consuming project must provide those packages through vcpkg (with the
 same `x64-windows` triplet) or otherwise make them available to CMake.
+
+## C API (optional)
+
+The SDK ships an optional C ABI bridge so the license client can be used from C and from
+languages with C FFI. Enable it with `-DKEYGENSDK_BUILD_C_API=ON`; this adds the
+[`keygensdk_c.h`](include/KeygenSDK/keygensdk_c.h) header and a C example target
+(`KeygenSDKCApiExample`).
+
+```c
+#include <KeygenSDK/keygensdk_c.h>
+
+#include <stdio.h>
+
+int main(void) {
+    KeygenSDK_Config config = {0};
+    config.host = "https://example.com";
+    config.account_id = "your-account-id";
+    config.timeout_seconds = 15;
+
+    KeygenSDK_Client* client = KeygenSDK_Client_Create(&config);
+    if (!client) {
+        return 1;
+    }
+
+    KeygenSDK_Result result;
+    KeygenSDK_Client_ValidateOnline(client, "YOUR_LICENSE_KEY", &result);
+    if (!result.ok) {
+        printf("error %d: %s\n", (int)result.error, result.message);
+    }
+
+    KeygenSDK_Client_Destroy(client);
+    return 0;
+}
+```
+
+### Functions
+
+| Function | Description |
+|---|---|
+| `KeygenSDK_Client_Create(config)` | Creates an opaque client handle (`NULL` on failure). |
+| `KeygenSDK_Client_Destroy(client)` | Releases a client handle. |
+| `KeygenSDK_Client_ValidateOnline(client, key, out)` | Validates a license key online. |
+| `KeygenSDK_Client_Activate(client, key, out)` | Activates a machine. |
+| `KeygenSDK_Client_VerifyOffline(client, out)` | Verifies the offline machine file. |
+| `KeygenSDK_Client_Deactivate(client, out)` | Deactivates the machine. |
+| `KeygenSDK_Client_LoadLocalLicense(client, out)` | Restores persisted local state. |
+| `KeygenSDK_Client_HasLocalLicense(client)` | Returns `1` if a local license is loaded. |
+| `KeygenSDK_ErrorCode_ToString(code)` | Returns a human-readable error name. |
+
+### Types
+
+- `KeygenSDK_Config` mirrors `KeygenSDK::Config`; every string field is a `const char*`,
+  and `local_license_path` may be `NULL` to use the default path.
+- `KeygenSDK_Result` holds `ok` (`int`), `error` (`KeygenSDK_ErrorCode`), and a
+  NUL-terminated `message[256]`.
+- `KeygenSDK_ErrorCode` mirrors `KeygenSDK::ErrorCode` with `KEYGENSDK_ERROR_*` values.
+
+The bridge uses `extern "C"` and no C++ types, so it can be called from C, C#, Rust, and
+other FFI languages. The header is installed only when the C API is enabled.
 
 ## Testing
 

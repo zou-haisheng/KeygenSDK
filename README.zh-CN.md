@@ -11,6 +11,7 @@
 - **机器激活 / 停用** —— 激活机器，随后可停用。
 - **本地许可证持久化** —— 跨进程生命周期保存与恢复激活状态，使用 Windows DPAPI 保护。
 - **离线许可证验证** —— 无需任何网络访问即可验证已检出的机器文件，使用 Ed25519 签名与 AES-256-GCM。
+- **可选 C API 桥** —— 提供 `extern "C"` ABI，可从 C 及其他 FFI 语言使用许可证客户端（`KEYGENSDK_BUILD_C_API`）。
 
 ## 环境要求
 
@@ -51,6 +52,13 @@ ctest --test-dir .\build-vs -C Debug --output-on-failure
 cmake --preset vs2026-x86
 cmake --build build-vs-x86 --config Debug
 ctest --test-dir .\build-vs-x86 -C Debug --output-on-failure
+```
+
+要构建可选的 C ABI 桥，在配置时加上 `-DKEYGENSDK_BUILD_C_API=ON`。这会启用 C 头文件与一个 `KeygenSDKCApiExample` C 示例目标：
+
+```powershell
+cmake --preset vs2026-x64 -DKEYGENSDK_BUILD_C_API=ON
+cmake --build build-vs --config Debug --target KeygenSDKCApiExample
 ```
 
 测试通过时会输出：
@@ -337,6 +345,60 @@ target_link_libraries(
 ```
 
 已安装的包会声明对 `curl`、`nlohmann-json` 与 `openssl` 的 `find_dependency`，因此消费项目需要通过 vcpkg（使用相同的 `x64-windows` triplet）提供这些包，或以其他方式让 CMake 能找到它们。
+
+## C API（可选）
+
+SDK 附带一个可选的 C ABI 桥，使许可证客户端可从 C 以及支持 C FFI 的语言调用。通过 `-DKEYGENSDK_BUILD_C_API=ON` 启用；这会加入
+[`keygensdk_c.h`](include/KeygenSDK/keygensdk_c.h) 头文件与一个 C 示例目标（`KeygenSDKCApiExample`）。
+
+```c
+#include <KeygenSDK/keygensdk_c.h>
+
+#include <stdio.h>
+
+int main(void) {
+    KeygenSDK_Config config = {0};
+    config.host = "https://example.com";
+    config.account_id = "your-account-id";
+    config.timeout_seconds = 15;
+
+    KeygenSDK_Client* client = KeygenSDK_Client_Create(&config);
+    if (!client) {
+        return 1;
+    }
+
+    KeygenSDK_Result result;
+    KeygenSDK_Client_ValidateOnline(client, "YOUR_LICENSE_KEY", &result);
+    if (!result.ok) {
+        printf("error %d: %s\n", (int)result.error, result.message);
+    }
+
+    KeygenSDK_Client_Destroy(client);
+    return 0;
+}
+```
+
+### 函数
+
+| 函数 | 说明 |
+|---|---|
+| `KeygenSDK_Client_Create(config)` | 创建不透明客户端句柄（失败返回 `NULL`）。 |
+| `KeygenSDK_Client_Destroy(client)` | 释放客户端句柄。 |
+| `KeygenSDK_Client_ValidateOnline(client, key, out)` | 在线验证许可证密钥。 |
+| `KeygenSDK_Client_Activate(client, key, out)` | 激活机器。 |
+| `KeygenSDK_Client_VerifyOffline(client, out)` | 验证离线机器文件。 |
+| `KeygenSDK_Client_Deactivate(client, out)` | 停用机器。 |
+| `KeygenSDK_Client_LoadLocalLicense(client, out)` | 恢复已持久化的本地状态。 |
+| `KeygenSDK_Client_HasLocalLicense(client)` | 已加载本地许可证时返回 `1`。 |
+| `KeygenSDK_ErrorCode_ToString(code)` | 返回可读的错误名称。 |
+
+### 类型
+
+- `KeygenSDK_Config` 对应 `KeygenSDK::Config`；所有字符串字段都是 `const char*`，`local_license_path` 可为 `NULL` 以使用默认路径。
+- `KeygenSDK_Result` 包含 `ok`（`int`）、`error`（`KeygenSDK_ErrorCode`）以及以 NUL 结尾的 `message[256]`。
+- `KeygenSDK_ErrorCode` 对应 `KeygenSDK::ErrorCode`，取值为 `KEYGENSDK_ERROR_*`。
+
+该桥使用 `extern "C"` 且不涉及 C++ 类型，因此可从 C、C#、Rust 等 FFI 语言调用。头文件仅在启用 C API 时安装。
 
 ## 测试
 
