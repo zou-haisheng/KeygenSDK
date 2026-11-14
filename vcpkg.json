@@ -8,5 +8,5 @@
     "nlohmann-json",
     "openssl"
   ],
-  "builtin-baseline": "e99d87dcf02926bfd629560e11e156329d5720c1"
+  "builtin-baseline": "4702e381dbbd9b54d3f7e1eb565cd8981c1814cd"
 }

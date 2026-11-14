@@ -8,6 +8,7 @@ project(KeygenSDK
 option(KEYGENSDK_BUILD_TESTS "Build KeygenSDK tests" ON)
 option(KEYGENSDK_BUILD_EXAMPLE "Build basic example" ON)
 option(KEYGENSDK_BUILD_SHARED "Build KeygenSDK as a shared library" OFF)
+option(KEYGENSDK_BUILD_C_API "Build the KeygenSDK C ABI bridge" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -31,6 +32,14 @@ add_library(KeygenSDK ${KEYGENSDK_LIBRARY_TYPE}
     src/FileLocalLicenseStore.cpp
     src/LocalDataProtection.cpp
 )
+
+if(KEYGENSDK_BUILD_C_API)
+    target_sources(KeygenSDK PRIVATE src/CApi.cpp)
+    if(KEYGENSDK_BUILD_SHARED)
+        target_compile_definitions(KeygenSDK PRIVATE KEYGENSDK_C_API_SHARED KEYGENSDK_C_API_EXPORTS)
+        target_compile_definitions(KeygenSDK INTERFACE KEYGENSDK_C_API_SHARED)
+    endif()
+endif()
 
 add_library(KeygenSDK::KeygenSDK ALIAS KeygenSDK)
 
@@ -71,7 +80,13 @@ install(TARGETS KeygenSDK
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    PATTERN "keygensdk_c.h" EXCLUDE)
+
+if(KEYGENSDK_BUILD_C_API)
+    install(FILES include/KeygenSDK/keygensdk_c.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/KeygenSDK)
+endif()
 
 install(EXPORT KeygenSDKTargets
     FILE KeygenSDKTargets.cmake
@@ -120,4 +135,10 @@ endif()
 if(KEYGENSDK_BUILD_EXAMPLE)
     add_executable(KeygenSDKBasicExample examples/basic/main.cpp)
     target_link_libraries(KeygenSDKBasicExample PRIVATE KeygenSDK::KeygenSDK)
+endif()
+
+if(KEYGENSDK_BUILD_C_API AND KEYGENSDK_BUILD_EXAMPLE)
+    enable_language(C)
+    add_executable(KeygenSDKCApiExample examples/c_api/main.c)
+    target_link_libraries(KeygenSDKCApiExample PRIVATE KeygenSDK::KeygenSDK)
 endif()
