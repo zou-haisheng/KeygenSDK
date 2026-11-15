@@ -8,7 +8,7 @@ int main(void) {
     config.account_id = "test-account";
     config.timeout_seconds = 15;
 
-    KeygenSDK_Client* client = KeygenSDK_Client_Create(&config);
+    KeygenSDK_Client* client = KeygenSDK_Client_Create(&config, NULL);
     if (!client) {
         printf("failed to create client\n");
         return 1;

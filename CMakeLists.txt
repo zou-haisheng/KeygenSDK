@@ -19,7 +19,7 @@ if(KEYGENSDK_BUILD_SHARED)
     set(KEYGENSDK_LIBRARY_TYPE SHARED)
 endif()
 
-if(MSVC)
+if(MSVC AND NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
     set(KEYGENSDK_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
         CACHE STRING "MSVC runtime library (default /MD; /MT: MultiThreaded$<$<CONFIG:Debug>:Debug>)")
     set(CMAKE_MSVC_RUNTIME_LIBRARY "${KEYGENSDK_MSVC_RUNTIME_LIBRARY}")
@@ -128,6 +128,10 @@ if(KEYGENSDK_BUILD_TESTS)
         tests/test_local_data_protection.cpp
         tests/test_machine_file_verifier.cpp
     )
+    if(KEYGENSDK_BUILD_C_API)
+        target_sources(KeygenSDKTests PRIVATE tests/test_c_api.cpp)
+        target_compile_definitions(KeygenSDKTests PRIVATE KEYGENSDK_TEST_C_API)
+    endif()
     target_link_libraries(
         KeygenSDKTests
         PRIVATE

@@ -132,18 +132,30 @@ namespace {
 
 extern "C" {
 
-KeygenSDK_Client* KeygenSDK_Client_Create(const KeygenSDK_Config* config) {
+KeygenSDK_Client* KeygenSDK_Client_Create(
+    const KeygenSDK_Config* config,
+    KeygenSDK_ErrorCode* out_error) {
+
     if (!config) {
+        if (out_error) {
+            *out_error = KEYGENSDK_ERROR_INVALID_CONFIGURATION;
+        }
         return nullptr;
     }
 
     try {
         KeygenSDK::Config built;
         if (!buildConfig(*config, built)) {
+            if (out_error) {
+                *out_error = KEYGENSDK_ERROR_INVALID_CONFIGURATION;
+            }
             return nullptr;
         }
         return new KeygenSDK_Client(std::move(built));
     } catch (...) {
+        if (out_error) {
+            *out_error = KEYGENSDK_ERROR_UNKNOWN;
+        }
         return nullptr;
     }
 }

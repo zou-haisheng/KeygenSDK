@@ -2378,5 +2378,14 @@ int main() {
     KeygenSDKTests::testLocalDataProtectionDoesNotModifyOutputOnUnprotectFailure();
     
     KeygenSDKTests::testMachineFileVerifier();
+
+#ifdef KEYGENSDK_TEST_C_API
+    KeygenSDKTests::testCApiCreateNullConfig();
+    KeygenSDKTests::testCApiCreateInvalidUtf8Path();
+    KeygenSDKTests::testCApiCreateChinesePath();
+    KeygenSDKTests::testCApiErrorCodeToString();
+    KeygenSDKTests::testCApiNullClientOperations();
+#endif
+
     return 0;
 }

@@ -2,6 +2,48 @@
 
 All notable changes to KeygenSDK are documented in this file.
 
+## [1.0.3] - 2026-11-15
+
+### Added
+- `KeygenSDK_Client_Create` gained an optional `out_error` parameter so callers can
+  distinguish a configuration error (`KEYGENSDK_ERROR_INVALID_CONFIGURATION`) from an
+  allocation failure (`KEYGENSDK_ERROR_UNKNOWN`).
+
+### Fixed
+- `CMAKE_MSVC_RUNTIME_LIBRARY` is now only assigned when not already defined, so
+  consumers that pull the SDK in via `add_subdirectory()` keep their own CRT setting.
+
+### Testing
+- Added `tests/test_c_api.cpp` covering: NULL config, invalid UTF-8 path, a Chinese path,
+  the 17 error-code ↔ string mappings, and NULL-client operations.
+
+## [1.0.2] - 2026-11-15
+
+### Fixed
+- The MSVC runtime library is now applied globally via `CMAKE_MSVC_RUNTIME_LIBRARY`, so
+  the library, tests, and examples all use the same CRT, and it no longer overrides a
+  parent project's setting when the SDK is consumed via `add_subdirectory()`.
+- An invalid UTF-8 `local_license_path` now makes `KeygenSDK_Client_Create` fail with
+  `KEYGENSDK_ERROR_INVALID_CONFIGURATION` instead of silently falling back to the
+  default path. `Create` also gained an optional `out_error` parameter to report the
+  failure reason.
+
+## [1.0.1] - 2026-11-15
+
+### Added
+- Optional C ABI bridge: `keygensdk_c.h`, the `KEYGENSDK_BUILD_C_API` CMake option, and
+  the `KeygenSDKCApiExample` C example target.
+- C API tests covering NULL config, invalid UTF-8 path, a Chinese path, and the
+  error-code ↔ string mapping.
+
+### Fixed
+- The C ABI bridge catches all exceptions internally (reported as
+  `KEYGENSDK_ERROR_UNKNOWN`) instead of letting them cross the `extern "C"` boundary.
+- `local_license_path` is converted from UTF-8 to a wide path on Windows, fixing garbled
+  non-ASCII paths (e.g. Chinese).
+- The MSVC runtime library is configurable via `KEYGENSDK_MSVC_RUNTIME_LIBRARY`
+  (`/MD` vs `/MT`).
+
 ## [1.0.0] - 2026-11-08
 
 ### Added

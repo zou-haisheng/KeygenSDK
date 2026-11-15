@@ -89,11 +89,14 @@ typedef struct KeygenSDK_Config {
 typedef struct KeygenSDK_Client KeygenSDK_Client;
 
 /*
- * Creates a client. Returns NULL if `config` is NULL, if allocation fails, or if
- * `local_license_path` is not valid UTF-8. Other configuration problems are
- * reported by the operation calls below.
+ * Creates a client. On failure returns NULL and, when `out_error` is non-NULL, stores
+ * the reason there: KEYGENSDK_ERROR_INVALID_CONFIGURATION for a NULL `config` or an
+ * invalid UTF-8 `local_license_path`, otherwise KEYGENSDK_ERROR_UNKNOWN (for example,
+ * allocation failure). `out_error` may be NULL.
  */
-KEYGENSDK_C_API KeygenSDK_Client* KeygenSDK_Client_Create(const KeygenSDK_Config* config);
+KEYGENSDK_C_API KeygenSDK_Client* KeygenSDK_Client_Create(
+    const KeygenSDK_Config* config,
+    KeygenSDK_ErrorCode* out_error);
 
 /* Destroys a client created by KeygenSDK_Client_Create(). NULL is a no-op. */
 KEYGENSDK_C_API void KeygenSDK_Client_Destroy(KeygenSDK_Client* client);
