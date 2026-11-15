@@ -61,6 +61,12 @@ cmake --preset vs2026-x64 -DKEYGENSDK_BUILD_C_API=ON
 cmake --build build-vs --config Debug --target KeygenSDKCApiExample
 ```
 
+MSVC 运行时库默认 `/MD`。要链接静态 CRT（`/MT`），传入：
+
+```powershell
+cmake --preset vs2026-x64 -DKEYGENSDK_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"
+```
+
 测试通过时会输出：
 
 ```text
@@ -397,6 +403,8 @@ int main(void) {
 - `KeygenSDK_Config` 对应 `KeygenSDK::Config`；所有字符串字段都是 `const char*`，`local_license_path` 可为 `NULL` 以使用默认路径。
 - `KeygenSDK_Result` 包含 `ok`（`int`）、`error`（`KeygenSDK_ErrorCode`）以及以 NUL 结尾的 `message[256]`。
 - `KeygenSDK_ErrorCode` 对应 `KeygenSDK::ErrorCode`，取值为 `KEYGENSDK_ERROR_*`。
+
+所有 `const char*` 字符串字段（包括 `local_license_path`）都是 UTF-8 编码。该桥在内部捕获所有异常并报告为 `KEYGENSDK_ERROR_UNKNOWN`，因此调用绝不会让异常跨过 C 边界传播。
 
 该桥使用 `extern "C"` 且不涉及 C++ 类型，因此可从 C、C#、Rust 等 FFI 语言调用。头文件仅在启用 C API 时安装。
 

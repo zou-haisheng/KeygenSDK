@@ -69,6 +69,12 @@ cmake --preset vs2026-x64 -DKEYGENSDK_BUILD_C_API=ON
 cmake --build build-vs --config Debug --target KeygenSDKCApiExample
 ```
 
+The MSVC runtime library defaults to `/MD`. To link against the static CRT (`/MT`), pass:
+
+```powershell
+cmake --preset vs2026-x64 -DKEYGENSDK_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"
+```
+
 A successful test run reports:
 
 ```text
@@ -430,6 +436,10 @@ int main(void) {
 - `KeygenSDK_Result` holds `ok` (`int`), `error` (`KeygenSDK_ErrorCode`), and a
   NUL-terminated `message[256]`.
 - `KeygenSDK_ErrorCode` mirrors `KeygenSDK::ErrorCode` with `KEYGENSDK_ERROR_*` values.
+
+All `const char*` string fields (including `local_license_path`) are UTF-8. The bridge
+catches every exception internally and reports it as `KEYGENSDK_ERROR_UNKNOWN`, so calls
+never propagate exceptions across the C boundary.
 
 The bridge uses `extern "C"` and no C++ types, so it can be called from C, C#, Rust, and
 other FFI languages. The header is installed only when the C API is enabled.

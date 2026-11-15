@@ -4,8 +4,13 @@
 #include "KeygenSDK/Error.h"
 
 #include <cstring>
+#include <exception>
+#include <filesystem>
 #include <string>
 #include <utility>
+
+#define NOMINMAX
+#include <windows.h>
 
 /* Keep the C error codes in sync with the C++ KeygenSDK::ErrorCode enum. */
 static_assert(
@@ -58,6 +63,32 @@ namespace {
         out->message[sizeof(out->message) - 1] = '\0';
     }
 
+    std::filesystem::path toUtf8Path(const char* utf8) {
+        if (!utf8 || *utf8 == '\0') {
+            return {};
+        }
+
+        const int size = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, nullptr, 0);
+        if (size <= 0) {
+            return {};
+        }
+
+        std::wstring wide(static_cast<std::size_t>(size - 1), L'\0');
+        MultiByteToWideChar(CP_UTF8, 0, utf8, -1, wide.data(), size);
+        return std::filesystem::path(std::move(wide));
+    }
+
+    template <typename Fn>
+    void callGuarded(KeygenSDK_Result* out, Fn&& fn) {
+        try {
+            fillResult(out, fn());
+        } catch (const std::exception& exception) {
+            setError(out, KEYGENSDK_ERROR_UNKNOWN, exception.what());
+        } catch (...) {
+            setError(out, KEYGENSDK_ERROR_UNKNOWN, "unexpected exception");
+        }
+    }
+
     KeygenSDK::Config toConfig(const KeygenSDK_Config& config) {
         KeygenSDK::Config result;
         result.host = config.host ? config.host : "";
@@ -67,7 +98,7 @@ namespace {
         result.timeoutSeconds =
             config.timeout_seconds > 0 ? config.timeout_seconds : 15;
         if (config.local_license_path) {
-            result.localLicensePath = config.local_license_path;
+            result.localLicensePath = toUtf8Path(config.local_license_path);
         }
         return result;
     }
@@ -107,9 +138,9 @@ void KeygenSDK_Client_ValidateOnline(
         return;
     }
 
-    fillResult(
-        out,
-        client->client.validateOnline(license_key ? license_key : ""));
+    callGuarded(out, [&] {
+        return client->client.validateOnline(license_key ? license_key : "");
+    });
 }
 
 void KeygenSDK_Client_Activate(
@@ -127,9 +158,9 @@ void KeygenSDK_Client_Activate(
         return;
     }
 
-    fillResult(
-        out,
-        client->client.activate(license_key ? license_key : ""));
+    callGuarded(out, [&] {
+        return client->client.activate(license_key ? license_key : "");
+    });
 }
 
 void KeygenSDK_Client_VerifyOffline(
@@ -146,7 +177,7 @@ void KeygenSDK_Client_VerifyOffline(
         return;
     }
 
-    fillResult(out, client->client.verifyOffline());
+    callGuarded(out, [&] { return client->client.verifyOffline(); });
 }
 
 void KeygenSDK_Client_Deactivate(
@@ -163,7 +194,7 @@ void KeygenSDK_Client_Deactivate(
         return;
     }
 
-    fillResult(out, client->client.deactivate());
+    callGuarded(out, [&] { return client->client.deactivate(); });
 }
 
 void KeygenSDK_Client_LoadLocalLicense(
@@ -180,11 +211,19 @@ void KeygenSDK_Client_LoadLocalLicense(
         return;
     }
 
-    fillResult(out, client->client.loadLocalLicense());
+    callGuarded(out, [&] { return client->client.loadLocalLicense(); });
 }
 
 int KeygenSDK_Client_HasLocalLicense(const KeygenSDK_Client* client) {
-    return (client && client->client.hasLocalLicense()) ? 1 : 0;
+    if (!client) {
+        return 0;
+    }
+
+    try {
+        return client->client.hasLocalLicense() ? 1 : 0;
+    } catch (...) {
+        return 0;
+    }
 }
 
 const char* KeygenSDK_ErrorCode_ToString(KeygenSDK_ErrorCode code) {

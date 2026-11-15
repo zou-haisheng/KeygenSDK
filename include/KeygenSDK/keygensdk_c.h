@@ -76,13 +76,13 @@ typedef struct KeygenSDK_Result {
     char message[256];
 } KeygenSDK_Result;
 
-/* Configuration passed to KeygenSDK_Client_Create(). */
+/* Configuration passed to KeygenSDK_Client_Create(). All string fields are UTF-8. */
 typedef struct KeygenSDK_Config {
     const char* host;                /* required, https:// URL */
     const char* account_id;          /* required */
     const char* account_public_key;  /* hex Ed25519 public key, needed for verifyOffline */
     long timeout_seconds;            /* <= 0 means the default (15) */
-    const char* local_license_path;  /* optional; NULL means the default path */
+    const char* local_license_path;  /* optional, UTF-8; NULL means the default path */
 } KeygenSDK_Config;
 
 /* Opaque client handle. */

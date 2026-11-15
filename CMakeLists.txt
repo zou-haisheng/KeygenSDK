@@ -70,6 +70,13 @@ else()
     target_compile_options(KeygenSDK PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+if(MSVC)
+    set(KEYGENSDK_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
+        CACHE STRING "MSVC runtime library (default /MD; /MT: MultiThreaded$<$<CONFIG:Debug>:Debug>)")
+    set_property(TARGET KeygenSDK PROPERTY
+        MSVC_RUNTIME_LIBRARY "${KEYGENSDK_MSVC_RUNTIME_LIBRARY}")
+endif()
+
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
