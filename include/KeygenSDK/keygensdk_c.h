@@ -89,8 +89,9 @@ typedef struct KeygenSDK_Config {
 typedef struct KeygenSDK_Client KeygenSDK_Client;
 
 /*
- * Creates a client. Returns NULL only if `config` is NULL or allocation fails;
- * configuration problems are reported by the operation calls below.
+ * Creates a client. Returns NULL if `config` is NULL, if allocation fails, or if
+ * `local_license_path` is not valid UTF-8. Other configuration problems are
+ * reported by the operation calls below.
  */
 KEYGENSDK_C_API KeygenSDK_Client* KeygenSDK_Client_Create(const KeygenSDK_Config* config);
 

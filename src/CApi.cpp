@@ -4,13 +4,15 @@
 #include "KeygenSDK/Error.h"
 
 #include <cstring>
-#include <exception>
 #include <filesystem>
 #include <string>
 #include <utility>
 
+#ifdef _WIN32
 #define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#endif
 
 /* Keep the C error codes in sync with the C++ KeygenSDK::ErrorCode enum. */
 static_assert(
@@ -42,6 +44,25 @@ namespace {
         out->message[0] = '\0';
     }
 
+    void copyMessage(char* dst, const char* src) {
+        constexpr std::size_t capacity = sizeof(KeygenSDK_Result::message);
+        if (capacity == 0) {
+            return;
+        }
+
+        const std::size_t length = std::strlen(src);
+        std::size_t count = length < capacity - 1 ? length : capacity - 1;
+
+        /* Never cut a UTF-8 codepoint in half: back off continuation bytes. */
+        while (count > 0 &&
+               (static_cast<unsigned char>(src[count]) & 0xC0) == 0x80) {
+            --count;
+        }
+
+        std::memcpy(dst, src, count);
+        dst[count] = '\0';
+    }
+
     void setError(
         KeygenSDK_Result* out,
         KeygenSDK_ErrorCode code,
@@ -49,58 +70,62 @@ namespace {
 
         out->ok = 0;
         out->error = code;
-        std::strncpy(out->message, message, sizeof(out->message) - 1);
-        out->message[sizeof(out->message) - 1] = '\0';
+        copyMessage(out->message, message);
     }
 
     void fillResult(KeygenSDK_Result* out, const KeygenSDK::Result& result) {
         out->ok = result.ok ? 1 : 0;
         out->error = static_cast<KeygenSDK_ErrorCode>(result.error);
-        std::strncpy(
-            out->message,
-            result.message.c_str(),
-            sizeof(out->message) - 1);
-        out->message[sizeof(out->message) - 1] = '\0';
+        copyMessage(out->message, result.message.c_str());
     }
 
-    std::filesystem::path toUtf8Path(const char* utf8) {
+    bool utf8ToPath(const char* utf8, std::filesystem::path& out) {
         if (!utf8 || *utf8 == '\0') {
-            return {};
+            out.clear();
+            return true;
         }
 
+#ifdef _WIN32
         const int size = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, nullptr, 0);
         if (size <= 0) {
-            return {};
+            return false;
         }
 
         std::wstring wide(static_cast<std::size_t>(size - 1), L'\0');
         MultiByteToWideChar(CP_UTF8, 0, utf8, -1, wide.data(), size);
-        return std::filesystem::path(std::move(wide));
+        out = std::filesystem::path(std::move(wide));
+#else
+        out = std::filesystem::path(utf8);
+#endif
+        return true;
     }
 
     template <typename Fn>
     void callGuarded(KeygenSDK_Result* out, Fn&& fn) {
         try {
             fillResult(out, fn());
-        } catch (const std::exception& exception) {
-            setError(out, KEYGENSDK_ERROR_UNKNOWN, exception.what());
         } catch (...) {
-            setError(out, KEYGENSDK_ERROR_UNKNOWN, "unexpected exception");
+            setError(out, KEYGENSDK_ERROR_UNKNOWN, "internal error");
         }
     }
 
-    KeygenSDK::Config toConfig(const KeygenSDK_Config& config) {
-        KeygenSDK::Config result;
-        result.host = config.host ? config.host : "";
-        result.accountId = config.account_id ? config.account_id : "";
-        result.accountPublicKey =
+    bool buildConfig(const KeygenSDK_Config& config, KeygenSDK::Config& out) {
+        out.host = config.host ? config.host : "";
+        out.accountId = config.account_id ? config.account_id : "";
+        out.accountPublicKey =
             config.account_public_key ? config.account_public_key : "";
-        result.timeoutSeconds =
+        out.timeoutSeconds =
             config.timeout_seconds > 0 ? config.timeout_seconds : 15;
-        if (config.local_license_path) {
-            result.localLicensePath = toUtf8Path(config.local_license_path);
+
+        if (config.local_license_path && *config.local_license_path != '\0') {
+            std::filesystem::path path;
+            if (!utf8ToPath(config.local_license_path, path)) {
+                return false;
+            }
+            out.localLicensePath = std::move(path);
         }
-        return result;
+
+        return true;
     }
 
 } // namespace
@@ -113,7 +138,11 @@ KeygenSDK_Client* KeygenSDK_Client_Create(const KeygenSDK_Config* config) {
     }
 
     try {
-        return new KeygenSDK_Client(toConfig(*config));
+        KeygenSDK::Config built;
+        if (!buildConfig(*config, built)) {
+            return nullptr;
+        }
+        return new KeygenSDK_Client(std::move(built));
     } catch (...) {
         return nullptr;
     }
