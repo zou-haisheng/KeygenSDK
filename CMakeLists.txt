@@ -8,7 +8,8 @@ project(KeygenSDK
 option(KEYGENSDK_BUILD_TESTS "Build KeygenSDK tests" ON)
 option(KEYGENSDK_BUILD_EXAMPLE "Build basic example" ON)
 option(KEYGENSDK_BUILD_SHARED "Build KeygenSDK as a shared library" OFF)
-option(KEYGENSDK_BUILD_C_API "Build the KeygenSDK C ABI bridge" OFF)
+option(KEYGENSDK_BUILD_C_API "Build the KeygenSDK C ABI bridge" ON)
+option(KEYGENSDK_BUILD_C_API_EXAMPLE "Build the C ABI bridge example" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -147,7 +148,7 @@ if(KEYGENSDK_BUILD_EXAMPLE)
     target_link_libraries(KeygenSDKBasicExample PRIVATE KeygenSDK::KeygenSDK)
 endif()
 
-if(KEYGENSDK_BUILD_C_API AND KEYGENSDK_BUILD_EXAMPLE)
+if(KEYGENSDK_BUILD_C_API AND KEYGENSDK_BUILD_C_API_EXAMPLE)
     enable_language(C)
     add_executable(KeygenSDKCApiExample examples/c_api/main.c)
     target_link_libraries(KeygenSDKCApiExample PRIVATE KeygenSDK::KeygenSDK)

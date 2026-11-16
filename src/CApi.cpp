@@ -2,6 +2,7 @@
 
 #include "KeygenSDK/Client.h"
 #include "KeygenSDK/Error.h"
+#include "KeygenSDK/MachineIdentity.h"
 
 #include <cstring>
 #include <filesystem>
@@ -44,14 +45,13 @@ namespace {
         out->message[0] = '\0';
     }
 
-    void copyMessage(char* dst, const char* src) {
-        constexpr std::size_t capacity = sizeof(KeygenSDK_Result::message);
-        if (capacity == 0) {
+    void copyString(char* dst, std::size_t dstSize, const char* src) {
+        if (dstSize == 0) {
             return;
         }
 
         const std::size_t length = std::strlen(src);
-        std::size_t count = length < capacity - 1 ? length : capacity - 1;
+        std::size_t count = length < dstSize - 1 ? length : dstSize - 1;
 
         /* Never cut a UTF-8 codepoint in half: back off continuation bytes. */
         while (count > 0 &&
@@ -70,13 +70,13 @@ namespace {
 
         out->ok = 0;
         out->error = code;
-        copyMessage(out->message, message);
+        copyString(out->message, sizeof(out->message), message);
     }
 
     void fillResult(KeygenSDK_Result* out, const KeygenSDK::Result& result) {
         out->ok = result.ok ? 1 : 0;
         out->error = static_cast<KeygenSDK_ErrorCode>(result.error);
-        copyMessage(out->message, result.message.c_str());
+        copyString(out->message, sizeof(out->message), result.message.c_str());
     }
 
     bool utf8ToPath(const char* utf8, std::filesystem::path& out) {
@@ -269,6 +269,106 @@ int KeygenSDK_Client_HasLocalLicense(const KeygenSDK_Client* client) {
 
 const char* KeygenSDK_ErrorCode_ToString(KeygenSDK_ErrorCode code) {
     return KeygenSDK::toString(static_cast<KeygenSDK::ErrorCode>(code)).data();
+}
+
+KeygenSDK_ErrorCode KeygenSDK_MachineFingerprint(char* out, size_t size) {
+    if (!out || size == 0) {
+        return KEYGENSDK_ERROR_INVALID_CONFIGURATION;
+    }
+
+    try {
+        std::string fingerprint;
+        const KeygenSDK::Result result =
+            KeygenSDK::MachineIdentity::fingerprint(fingerprint);
+
+        if (!result.ok) {
+            return static_cast<KeygenSDK_ErrorCode>(result.error);
+        }
+
+        copyString(out, size, fingerprint.c_str());
+        return KEYGENSDK_ERROR_NONE;
+    } catch (...) {
+        return KEYGENSDK_ERROR_UNKNOWN;
+    }
+}
+
+size_t KeygenSDK_Client_ExportMachineFile(
+    KeygenSDK_Client* client,
+    char* out,
+    size_t size) {
+
+    if (!client) {
+        return 0;
+    }
+
+    try {
+        const std::string machineFile =
+            client->client.exportMachineFile();
+
+        if (machineFile.empty()) {
+            return 0;
+        }
+
+        const std::size_t required = machineFile.size() + 1;
+
+        if (out != nullptr && size >= required) {
+            std::memcpy(out, machineFile.c_str(), required);
+        }
+
+        return required;
+    } catch (...) {
+        return 0;
+    }
+}
+
+void KeygenSDK_Client_ImportMachineFile(
+    KeygenSDK_Client* client,
+    const char* machine_file,
+    KeygenSDK_Result* out) {
+
+    if (!out) {
+        return;
+    }
+    clearResult(out);
+
+    if (!client) {
+        setError(out, KEYGENSDK_ERROR_INVALID_CONFIGURATION, "client is null");
+        return;
+    }
+
+    callGuarded(out, [&] {
+        return client->client.importMachineFile(
+            machine_file ? machine_file : "");
+    });
+}
+
+void KeygenSDK_Client_GetLicenseInfo(
+    KeygenSDK_Client* client,
+    KeygenSDK_LicenseInfo* out) {
+
+    if (!out) {
+        return;
+    }
+
+    out->license_id[0] = '\0';
+    out->expiry[0] = '\0';
+
+    if (!client) {
+        return;
+    }
+
+    try {
+        copyString(
+            out->license_id,
+            sizeof(out->license_id),
+            client->client.licenseId().c_str());
+        copyString(
+            out->expiry,
+            sizeof(out->expiry),
+            client->client.licenseExpiry().c_str());
+    } catch (...) {
+        // Leave fields empty on unexpected failure.
+    }
 }
 
 } // extern "C"

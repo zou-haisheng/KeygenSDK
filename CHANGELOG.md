@@ -2,6 +2,22 @@
 
 All notable changes to KeygenSDK are documented in this file.
 
+## [1.0.4] - 2026-11-15
+
+### Added
+- C++ `Client`: `exportMachineFile()`, `importMachineFile()`, `licenseId()`, and
+  `licenseExpiry()` for machine-file transfer and license metadata.
+- C API: `KeygenSDK_MachineFingerprint`, `KeygenSDK_Client_ExportMachineFile`,
+  `KeygenSDK_Client_ImportMachineFile`, `KeygenSDK_Client_GetLicenseInfo`, and the
+  `KeygenSDK_LicenseInfo` struct.
+- Tests for the new fingerprint, machine-file export/import, and license-info APIs.
+
+### Changed
+- The C ABI bridge is now built by default (`KEYGENSDK_BUILD_C_API` defaults to `ON`), so
+  the C header and C ABI symbols are part of a normal build.
+- The C example target moved behind `KEYGENSDK_BUILD_C_API_EXAMPLE` (default `OFF`), so a
+  default build no longer requires a C compiler.
+
 ## [1.0.3] - 2026-11-15
 
 ### Added

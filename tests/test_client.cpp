@@ -81,6 +81,18 @@ namespace KeygenSDKTests {
         std::string& publicKeyHex);
 
     void testMachineFileVerifier();
+
+#ifdef KEYGENSDK_TEST_C_API
+    void testCApiCreateNullConfig();
+    void testCApiCreateInvalidUtf8Path();
+    void testCApiCreateChinesePath();
+    void testCApiErrorCodeToString();
+    void testCApiNullClientOperations();
+    void testCApiMachineFingerprint();
+    void testCApiExportMachineFileEmpty();
+    void testCApiImportMachineFileWithoutState();
+    void testCApiLicenseInfoEmpty();
+#endif
 }
 
 namespace {
@@ -612,6 +624,34 @@ namespace {
             KeygenSDK::ErrorCode::InvalidConfiguration);
     }
 
+    void testImportMachineFile() {
+        FakeHttpClient http;
+
+        http.validationResponseBody = R"({"meta":{"valid":true,"code":"VALID"},"data":{"id":"test-license-id","type":"licenses"}})";
+        http.activationResponseBody = R"({"data":{"id":"test-machine-id","type":"machines","attributes":{"fingerprint":"test-fingerprint"}}})";
+        http.checkoutResponseBody = R"({"data":{"type":"machine-files","attributes":{"certificate":"test-machine-file"}}})";
+
+        auto store =
+            std::make_unique<FakeLocalLicenseStore>();
+
+        auto client =
+            KeygenSDK::ClientTestAccess::create(
+                testConfig(),
+                http,
+                std::move(store));
+
+        const auto activateResult =
+            client.activate("TEST-LICENSE-KEY");
+
+        assert(activateResult.ok);
+
+        const auto importResult =
+            client.importMachineFile("imported-machine-file");
+
+        assert(importResult.ok);
+        assert(client.exportMachineFile() == "imported-machine-file");
+    }
+
     // Activation Success Test
     void testActivationSuccess() {
         FakeHttpClient http;
@@ -659,6 +699,10 @@ namespace {
 
         assert(result.ok);
         assert(result.error == KeygenSDK::ErrorCode::None);
+
+        assert(client.licenseId() == "test-license-id");
+        assert(client.exportMachineFile() == "test-machine-file");
+        assert(client.licenseExpiry().empty());
 
         assert(http.postCallCount == 3);
 
@@ -2200,6 +2244,9 @@ namespace {
         assert(result.ok);
         assert(result.error == KeygenSDK::ErrorCode::None);
         assert(http.postCallCount == 0);
+
+        assert(client.licenseId() == "test-license-id");
+        assert(client.licenseExpiry() == "2999-01-01T00:00:00Z");
     }
 
     void testVerifyOfflineRejectsExpiredMachineFile() {
@@ -2310,6 +2357,7 @@ int main() {
     testLocalLicenseStateMissingLicenseKey();
     testLocalLicenseStateMissingMachineId();
     testLocalLicenseStateMissingMachineFingerprint();
+    testImportMachineFile();
     testActivationSuccess();
     testActivationSavesLocalLicenseState();
     testActivationFailsWhenLocalLicenseSaveFails();
@@ -2385,6 +2433,10 @@ int main() {
     KeygenSDKTests::testCApiCreateChinesePath();
     KeygenSDKTests::testCApiErrorCodeToString();
     KeygenSDKTests::testCApiNullClientOperations();
+    KeygenSDKTests::testCApiMachineFingerprint();
+    KeygenSDKTests::testCApiExportMachineFileEmpty();
+    KeygenSDKTests::testCApiImportMachineFileWithoutState();
+    KeygenSDKTests::testCApiLicenseInfoEmpty();
 #endif
 
     return 0;

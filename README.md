@@ -15,8 +15,8 @@ clean integration.
   lifetimes, protected with Windows DPAPI.
 - **Offline license verification** — verify a checked-out machine file without any
   network access, using Ed25519 signatures and AES-256-GCM.
-- **Optional C API bridge** — an `extern "C"` ABI for using the license client from C and
-  other FFI languages (`KEYGENSDK_BUILD_C_API`).
+- **C API bridge** — an `extern "C"` ABI for using the license client from C and other
+  FFI languages (built by default; `KEYGENSDK_BUILD_C_API`).
 
 ## Requirements
 
@@ -61,11 +61,11 @@ cmake --build build-vs-x86 --config Debug
 ctest --test-dir .\build-vs-x86 -C Debug --output-on-failure
 ```
 
-To build the optional C ABI bridge, add `-DKEYGENSDK_BUILD_C_API=ON` at configure time.
-This enables the C header and a `KeygenSDKCApiExample` C example target:
+The C ABI bridge is built by default (`KEYGENSDK_BUILD_C_API=ON`). To also build the C
+example target (`KeygenSDKCApiExample`), add `-DKEYGENSDK_BUILD_C_API_EXAMPLE=ON`:
 
 ```powershell
-cmake --preset vs2026-x64 -DKEYGENSDK_BUILD_C_API=ON
+cmake --preset vs2026-x64 -DKEYGENSDK_BUILD_C_API_EXAMPLE=ON
 cmake --build build-vs --config Debug --target KeygenSDKCApiExample
 ```
 
@@ -167,6 +167,10 @@ public:
     [[nodiscard]] Result deactivate();
     [[nodiscard]] Result loadLocalLicense();
     [[nodiscard]] bool hasLocalLicense() const noexcept;
+    [[nodiscard]] std::string exportMachineFile() const;
+    [[nodiscard]] Result importMachineFile(const std::string& machineFile);
+    [[nodiscard]] std::string licenseId() const;
+    [[nodiscard]] std::string licenseExpiry() const;
 };
 ```
 
@@ -381,12 +385,12 @@ The installed package declares `find_dependency` for `curl`, `nlohmann-json`, an
 `openssl`, so the consuming project must provide those packages through vcpkg (with the
 same `x64-windows` triplet) or otherwise make them available to CMake.
 
-## C API (optional)
+## C API
 
-The SDK ships an optional C ABI bridge so the license client can be used from C and from
-languages with C FFI. Enable it with `-DKEYGENSDK_BUILD_C_API=ON`; this adds the
-[`keygensdk_c.h`](include/KeygenSDK/keygensdk_c.h) header and a C example target
-(`KeygenSDKCApiExample`).
+The SDK ships a C ABI bridge so the license client can be used from C and from languages
+with C FFI. It is built by default (`KEYGENSDK_BUILD_C_API=ON`), which installs the
+[`keygensdk_c.h`](include/KeygenSDK/keygensdk_c.h) header; build the C example target
+(`KeygenSDKCApiExample`) by also setting `-DKEYGENSDK_BUILD_C_API_EXAMPLE=ON`.
 
 ```c
 #include <KeygenSDK/keygensdk_c.h>
@@ -428,6 +432,10 @@ int main(void) {
 | `KeygenSDK_Client_LoadLocalLicense(client, out)` | Restores persisted local state. |
 | `KeygenSDK_Client_HasLocalLicense(client)` | Returns `1` if a local license is loaded. |
 | `KeygenSDK_ErrorCode_ToString(code)` | Returns a human-readable error name. |
+| `KeygenSDK_MachineFingerprint(out, size)` | Computes the machine fingerprint (hex). |
+| `KeygenSDK_Client_ExportMachineFile(client, out, size)` | Writes the checked-out machine file; returns the required size. |
+| `KeygenSDK_Client_ImportMachineFile(client, file, out)` | Imports and persists a checked-out machine file. |
+| `KeygenSDK_Client_GetLicenseInfo(client, out)` | Fills `KeygenSDK_LicenseInfo` with license ID and expiry. |
 
 ### Types
 
@@ -436,6 +444,8 @@ int main(void) {
 - `KeygenSDK_Result` holds `ok` (`int`), `error` (`KeygenSDK_ErrorCode`), and a
   NUL-terminated `message[256]`.
 - `KeygenSDK_ErrorCode` mirrors `KeygenSDK::ErrorCode` with `KEYGENSDK_ERROR_*` values.
+- `KeygenSDK_LicenseInfo` holds `license_id[128]` and `expiry[64]`; both are empty when
+  unknown (`expiry` is populated after a successful offline verification).
 
 All `const char*` string fields (including `local_license_path`) are UTF-8. The bridge
 catches every exception internally and reports it as `KEYGENSDK_ERROR_UNKNOWN`, so calls

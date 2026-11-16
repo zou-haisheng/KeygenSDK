@@ -28,6 +28,10 @@ namespace KeygenSDK {
             [[nodiscard]] Result loadLocalLicense();
 
             [[nodiscard]] bool hasLocalLicense() const noexcept;
+            [[nodiscard]] std::string exportMachineFile() const;
+            [[nodiscard]] Result importMachineFile(const std::string& machineFile);
+            [[nodiscard]] std::string licenseId() const;
+            [[nodiscard]] std::string licenseExpiry() const;
 
         private:
             class Impl;

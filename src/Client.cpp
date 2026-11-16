@@ -662,6 +662,7 @@ namespace KeygenSDK {
         std::string machineId;
         std::string machineFingerprint;
         std::string machineFile;
+        std::string machineFileExpiry;
     };
 
     Client::Client(Config config)
@@ -726,6 +727,7 @@ namespace KeygenSDK {
                 impl_->machineId.clear();
                 impl_->machineFingerprint.clear();
                 impl_->machineFile.clear();
+                impl_->machineFileExpiry.clear();
                 impl_->hasLocalLicense = false;
 
                 return Result::successResult(
@@ -756,6 +758,7 @@ namespace KeygenSDK {
         impl_->machineFile =
             state.machineFile;
 
+        impl_->machineFileExpiry.clear();
         impl_->hasLocalLicense = true;
 
         return Result::successResult(
@@ -939,6 +942,18 @@ namespace KeygenSDK {
                 "Machine file does not match the locally activated machine.");
         }
 
+        if (payload.contains("meta") &&
+            payload["meta"].is_object() &&
+            payload["meta"].contains("expiry") &&
+            payload["meta"]["expiry"].is_string()) {
+
+            impl_->machineFileExpiry =
+                payload["meta"]["expiry"].get<std::string>();
+        }
+        else {
+            impl_->machineFileExpiry.clear();
+        }
+
         return Result::successResult(
             "Offline machine file verification succeeded.");
     }
@@ -997,6 +1012,7 @@ namespace KeygenSDK {
         impl_->licenseId.clear();
         impl_->machineFingerprint.clear();
         impl_->machineFile.clear();
+        impl_->machineFileExpiry.clear();
         impl_->hasLocalLicense = false;
 
         if (!removeResult.ok) {
@@ -1004,6 +1020,65 @@ namespace KeygenSDK {
         }
         return Result::successResult(
             "Machine deactivation succeeded.");
+    }
+
+    std::string Client::exportMachineFile() const {
+        return impl_ ? impl_->machineFile : std::string{};
+    }
+
+    Result Client::importMachineFile(const std::string& machineFile) {
+        if (!impl_) {
+            return Result::failure(
+                ErrorCode::InvalidConfiguration,
+                "Client is not initialized.");
+        }
+
+        if (machineFile.empty()) {
+            return Result::failure(
+                ErrorCode::InvalidLicense,
+                "Machine file must not be empty.");
+        }
+
+        if (!impl_->hasLocalLicense) {
+            return Result::failure(
+                ErrorCode::LocalStateNotFound,
+                "No local license state is available. Load or activate first.");
+        }
+
+        if (!impl_->localStore_) {
+            return Result::failure(
+                ErrorCode::InvalidConfiguration,
+                "Local license store is not configured.");
+        }
+
+        impl_->machineFile = machineFile;
+        impl_->machineFileExpiry.clear();
+
+        const LocalLicenseState state =
+            makeLocalLicenseState(
+                impl_->licenseId,
+                impl_->licenseKey,
+                impl_->machineId,
+                impl_->machineFingerprint,
+                impl_->machineFile);
+
+        const Result saveResult =
+            impl_->localStore_->save(state);
+
+        if (!saveResult.ok) {
+            return saveResult;
+        }
+
+        return Result::successResult(
+            "Machine file imported successfully.");
+    }
+
+    std::string Client::licenseId() const {
+        return impl_ ? impl_->licenseId : std::string{};
+    }
+
+    std::string Client::licenseExpiry() const {
+        return impl_ ? impl_->machineFileExpiry : std::string{};
     }
 
     bool Client::hasLocalLicense() const noexcept {

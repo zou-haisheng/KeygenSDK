@@ -1,6 +1,8 @@
 #ifndef KEYGENSDK_C_API_H
 #define KEYGENSDK_C_API_H
 
+#include <stddef.h>
+
 /*
  * KeygenSDK C ABI bridge.
  *
@@ -88,6 +90,12 @@ typedef struct KeygenSDK_Config {
 /* Opaque client handle. */
 typedef struct KeygenSDK_Client KeygenSDK_Client;
 
+/* License metadata available after activation or offline verification. */
+typedef struct KeygenSDK_LicenseInfo {
+    char license_id[128];  /* license UUID; empty when unknown */
+    char expiry[64];       /* ISO 8601 expiry; empty when unknown */
+} KeygenSDK_LicenseInfo;
+
 /*
  * Creates a client. On failure returns NULL and, when `out_error` is non-NULL, stores
  * the reason there: KEYGENSDK_ERROR_INVALID_CONFIGURATION for a NULL `config` or an
@@ -129,6 +137,34 @@ KEYGENSDK_C_API int KeygenSDK_Client_HasLocalLicense(const KeygenSDK_Client* cli
 
 /* Returns a stable, NUL-terminated, human-readable error name. */
 KEYGENSDK_C_API const char* KeygenSDK_ErrorCode_ToString(KeygenSDK_ErrorCode code);
+
+/* Computes the machine fingerprint (hex SHA-256 of the Windows MachineGuid) and writes
+ * it to `out` (up to `size` bytes, NUL-terminated). Returns KEYGENSDK_ERROR_NONE on
+ * success. */
+KEYGENSDK_C_API KeygenSDK_ErrorCode KeygenSDK_MachineFingerprint(
+    char* out,
+    size_t size);
+
+/* Writes the checked-out machine file to `out` (up to `size` bytes). Returns the number
+ * of bytes required including the NUL terminator, or 0 on error. Pass `out == NULL` to
+ * query the required size first. */
+KEYGENSDK_C_API size_t KeygenSDK_Client_ExportMachineFile(
+    KeygenSDK_Client* client,
+    char* out,
+    size_t size);
+
+/* Imports a checked-out machine file and persists it. Requires an already loaded or
+ * activated local license state. */
+KEYGENSDK_C_API void KeygenSDK_Client_ImportMachineFile(
+    KeygenSDK_Client* client,
+    const char* machine_file,
+    KeygenSDK_Result* out);
+
+/* Fills `out` with the loaded license metadata. Fields are NUL-terminated and empty when
+ * unknown (`expiry` is only known after a successful offline verification). */
+KEYGENSDK_C_API void KeygenSDK_Client_GetLicenseInfo(
+    KeygenSDK_Client* client,
+    KeygenSDK_LicenseInfo* out);
 
 #ifdef __cplusplus
 } /* extern "C" */

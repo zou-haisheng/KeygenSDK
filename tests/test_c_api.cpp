@@ -118,4 +118,63 @@ namespace KeygenSDKTests {
         KeygenSDK_Client_Destroy(nullptr);
     }
 
+    void testCApiMachineFingerprint() {
+        char fingerprint[128];
+        const KeygenSDK_ErrorCode code =
+            KeygenSDK_MachineFingerprint(fingerprint, sizeof(fingerprint));
+
+        assert(code == KEYGENSDK_ERROR_NONE);
+        assert(fingerprint[0] != '\0');
+    }
+
+    void testCApiExportMachineFileEmpty() {
+        KeygenSDK_Config config = {};
+        config.host = "https://example.com";
+        config.account_id = "account";
+
+        KeygenSDK_Client* client =
+            KeygenSDK_Client_Create(&config, nullptr);
+        assert(client != nullptr);
+
+        const size_t required =
+            KeygenSDK_Client_ExportMachineFile(client, nullptr, 0);
+
+        assert(required == 0);
+        KeygenSDK_Client_Destroy(client);
+    }
+
+    void testCApiImportMachineFileWithoutState() {
+        KeygenSDK_Config config = {};
+        config.host = "https://example.com";
+        config.account_id = "account";
+
+        KeygenSDK_Client* client =
+            KeygenSDK_Client_Create(&config, nullptr);
+        assert(client != nullptr);
+
+        KeygenSDK_Result result;
+        KeygenSDK_Client_ImportMachineFile(client, "dummy", &result);
+
+        assert(!result.ok);
+        assert(result.error == KEYGENSDK_ERROR_LOCAL_STATE_NOT_FOUND);
+        KeygenSDK_Client_Destroy(client);
+    }
+
+    void testCApiLicenseInfoEmpty() {
+        KeygenSDK_Config config = {};
+        config.host = "https://example.com";
+        config.account_id = "account";
+
+        KeygenSDK_Client* client =
+            KeygenSDK_Client_Create(&config, nullptr);
+        assert(client != nullptr);
+
+        KeygenSDK_LicenseInfo info;
+        KeygenSDK_Client_GetLicenseInfo(client, &info);
+
+        assert(info.license_id[0] == '\0');
+        assert(info.expiry[0] == '\0');
+        KeygenSDK_Client_Destroy(client);
+    }
+
 } // namespace KeygenSDKTests
