@@ -141,6 +141,7 @@ if(KEYGENSDK_BUILD_TESTS)
             OpenSSL::Crypto
     )
     add_test(NAME KeygenSDKTests COMMAND KeygenSDKTests)
+    set_tests_properties(KeygenSDKTests PROPERTIES TIMEOUT 180)
 endif()
 
 if(KEYGENSDK_BUILD_EXAMPLE)

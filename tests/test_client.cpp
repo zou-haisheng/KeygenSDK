@@ -12,6 +12,13 @@
 #include <nlohmann/json.hpp>
 #include <memory>
 #include <vector>
+#include <iostream>
+
+#define RUN_TEST(fn) do { \
+    std::cerr << "[ RUN ] " #fn << std::endl; \
+    fn(); \
+    std::cerr << "[ OK  ] " #fn << std::endl; \
+} while (false)
 
 namespace KeygenSDK {
 
@@ -2336,107 +2343,107 @@ int main() {
 
     assert(!client.hasLocalLicense());
 
-    testValidLicense();
-    testExpiredLicense();
-    testSuspendedLicense();
-    testOverdueLicense();
-    testServerError();
-    testInvalidJson();
-    testMissingMeta();
-    testMissingValid();
-    testMissingCode();
-    testMissingLicenseId();
-    testHttpClientFailure();
-    testHttp4xx();
-    testKeygenErrorResponse();
-    testInvalidHost();
-    testEmptyHttpsHost();
-    testMachineFingerprint();
-    testLocalLicenseStateValid();
-    testLocalLicenseStateMissingLicenseId();
-    testLocalLicenseStateMissingLicenseKey();
-    testLocalLicenseStateMissingMachineId();
-    testLocalLicenseStateMissingMachineFingerprint();
-    testImportMachineFile();
-    testActivationSuccess();
-    testActivationSavesLocalLicenseState();
-    testActivationFailsWhenLocalLicenseSaveFails();
-    testActivationStopsWhenLicenseIsInvalid();
-    testActivationHttpFailure();
-    testActivationServerError();
-    testActivationInvalidJson();
-    testActivationInvalidResponse();
-    testActivationInvalidType();
-    testActivationHttpClientFailure();
-    testActivationMissingFingerprint();
-    testActivationSetsLocalLicenseState();
-    testActivationFailureDoesNotSetLocalLicenseState();
-    testDeactivateWithoutLocalLicense();
-    testDeactivateHttpFailureKeepsLocalLicense();
-    testDeactivateInvalidResponseKeepsLocalLicense();
-    testDeactivateSuccessClearsLocalLicense();
-    testDeactivateRemovesLocalLicenseState();
-    testDeactivateFailsWhenLocalLicenseRemoveFails();
-    testLoadLocalLicenseMissingState();
-    testLoadLocalLicenseStorageFailure();
-    testLoadLocalLicenseSuccess();
-    testLoadLocalLicenseRejectsInvalidState();
-    testLoadLocalLicenseMissingStateClearsExistingState();
-    testClientDefaultLocalLicenseStoreLifecycle();
+    RUN_TEST(testValidLicense);
+    RUN_TEST(testExpiredLicense);
+    RUN_TEST(testSuspendedLicense);
+    RUN_TEST(testOverdueLicense);
+    RUN_TEST(testServerError);
+    RUN_TEST(testInvalidJson);
+    RUN_TEST(testMissingMeta);
+    RUN_TEST(testMissingValid);
+    RUN_TEST(testMissingCode);
+    RUN_TEST(testMissingLicenseId);
+    RUN_TEST(testHttpClientFailure);
+    RUN_TEST(testHttp4xx);
+    RUN_TEST(testKeygenErrorResponse);
+    RUN_TEST(testInvalidHost);
+    RUN_TEST(testEmptyHttpsHost);
+    RUN_TEST(testMachineFingerprint);
+    RUN_TEST(testLocalLicenseStateValid);
+    RUN_TEST(testLocalLicenseStateMissingLicenseId);
+    RUN_TEST(testLocalLicenseStateMissingLicenseKey);
+    RUN_TEST(testLocalLicenseStateMissingMachineId);
+    RUN_TEST(testLocalLicenseStateMissingMachineFingerprint);
+    RUN_TEST(testImportMachineFile);
+    RUN_TEST(testActivationSuccess);
+    RUN_TEST(testActivationSavesLocalLicenseState);
+    RUN_TEST(testActivationFailsWhenLocalLicenseSaveFails);
+    RUN_TEST(testActivationStopsWhenLicenseIsInvalid);
+    RUN_TEST(testActivationHttpFailure);
+    RUN_TEST(testActivationServerError);
+    RUN_TEST(testActivationInvalidJson);
+    RUN_TEST(testActivationInvalidResponse);
+    RUN_TEST(testActivationInvalidType);
+    RUN_TEST(testActivationHttpClientFailure);
+    RUN_TEST(testActivationMissingFingerprint);
+    RUN_TEST(testActivationSetsLocalLicenseState);
+    RUN_TEST(testActivationFailureDoesNotSetLocalLicenseState);
+    RUN_TEST(testDeactivateWithoutLocalLicense);
+    RUN_TEST(testDeactivateHttpFailureKeepsLocalLicense);
+    RUN_TEST(testDeactivateInvalidResponseKeepsLocalLicense);
+    RUN_TEST(testDeactivateSuccessClearsLocalLicense);
+    RUN_TEST(testDeactivateRemovesLocalLicenseState);
+    RUN_TEST(testDeactivateFailsWhenLocalLicenseRemoveFails);
+    RUN_TEST(testLoadLocalLicenseMissingState);
+    RUN_TEST(testLoadLocalLicenseStorageFailure);
+    RUN_TEST(testLoadLocalLicenseSuccess);
+    RUN_TEST(testLoadLocalLicenseRejectsInvalidState);
+    RUN_TEST(testLoadLocalLicenseMissingStateClearsExistingState);
+    RUN_TEST(testClientDefaultLocalLicenseStoreLifecycle);
 
-    testVerifyOfflineWithoutLocalLicense();
-    testVerifyOfflineWithoutMachineFile();
-    testVerifyOfflineRejectsInvalidMachineFile();
-    testVerifyOfflineRejectsMachineIdMismatch();
-    testVerifyOfflineAcceptsMatchingMachineId();
-    testVerifyOfflineRejectsExpiredMachineFile();
+    RUN_TEST(testVerifyOfflineWithoutLocalLicense);
+    RUN_TEST(testVerifyOfflineWithoutMachineFile);
+    RUN_TEST(testVerifyOfflineRejectsInvalidMachineFile);
+    RUN_TEST(testVerifyOfflineRejectsMachineIdMismatch);
+    RUN_TEST(testVerifyOfflineAcceptsMatchingMachineId);
+    RUN_TEST(testVerifyOfflineRejectsExpiredMachineFile);
 
-    KeygenSDKTests::testLocalLicenseStoreSaveAndLoad();
-    KeygenSDKTests::testLocalLicenseStoreLoadMissingState();
-    KeygenSDKTests::testLocalLicenseStoreRemove();
+    RUN_TEST(KeygenSDKTests::testLocalLicenseStoreSaveAndLoad);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseStoreLoadMissingState);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseStoreRemove);
 
-    KeygenSDKTests::testLocalLicenseSerializationRoundTrip();
-    KeygenSDKTests::testLocalLicenseSerializationRejectsInvalidState();
-    KeygenSDKTests::testLocalLicenseDeserializationRejectsMalformedJson();
-    KeygenSDKTests::testLocalLicenseDeserializationRejectsMissingVersion();
-    KeygenSDKTests::testLocalLicenseDeserializationRejectsUnsupportedVersion();
-    KeygenSDKTests::testLocalLicenseDeserializationRejectsMissingLicense();
-    KeygenSDKTests::testLocalLicenseDeserializationRejectsMissingMachine();
-    KeygenSDKTests::testLocalLicenseDeserializationRejectsMissingRequiredField();
-    KeygenSDKTests::testLocalLicenseDeserializationRejectsInvalidFieldType();
-    KeygenSDKTests::testLocalLicenseDeserializationRejectsEmptyRequiredField();
-    KeygenSDKTests::testLocalLicenseDeserializationAllowsUnknownFields();
-    KeygenSDKTests::testLocalLicenseSerializationPreservesMachineFile();
-    KeygenSDKTests::testLocalLicenseDeserializationAcceptsVersion1();
+    RUN_TEST(KeygenSDKTests::testLocalLicenseSerializationRoundTrip);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseSerializationRejectsInvalidState);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseDeserializationRejectsMalformedJson);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseDeserializationRejectsMissingVersion);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseDeserializationRejectsUnsupportedVersion);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseDeserializationRejectsMissingLicense);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseDeserializationRejectsMissingMachine);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseDeserializationRejectsMissingRequiredField);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseDeserializationRejectsInvalidFieldType);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseDeserializationRejectsEmptyRequiredField);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseDeserializationAllowsUnknownFields);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseSerializationPreservesMachineFile);
+    RUN_TEST(KeygenSDKTests::testLocalLicenseDeserializationAcceptsVersion1);
 
-    KeygenSDKTests::testFileLocalLicenseStoreSaveAndLoad();
-    KeygenSDKTests::testFileLocalLicenseStoreAtomicReplacement();
-    KeygenSDKTests::testFileLocalLicenseStoreDoesNotLeaveTemporaryFile();
-    KeygenSDKTests::testFileLocalLicenseStoreLoadMissingFile();
-    KeygenSDKTests::testFileLocalLicenseStoreRemove();
-    KeygenSDKTests::testFileLocalLicenseStoreMalformedJson();
-    KeygenSDKTests::testFileLocalLicenseStoreDoesNotStorePlaintext();
-    KeygenSDKTests::testFileLocalLicenseStoreRejectsTamperedData();
+    RUN_TEST(KeygenSDKTests::testFileLocalLicenseStoreSaveAndLoad);
+    RUN_TEST(KeygenSDKTests::testFileLocalLicenseStoreAtomicReplacement);
+    RUN_TEST(KeygenSDKTests::testFileLocalLicenseStoreDoesNotLeaveTemporaryFile);
+    RUN_TEST(KeygenSDKTests::testFileLocalLicenseStoreLoadMissingFile);
+    RUN_TEST(KeygenSDKTests::testFileLocalLicenseStoreRemove);
+    RUN_TEST(KeygenSDKTests::testFileLocalLicenseStoreMalformedJson);
+    RUN_TEST(KeygenSDKTests::testFileLocalLicenseStoreDoesNotStorePlaintext);
+    RUN_TEST(KeygenSDKTests::testFileLocalLicenseStoreRejectsTamperedData);
 
-    KeygenSDKTests::testLocalDataProtectionRoundTrip();
-    KeygenSDKTests::testLocalDataProtectionRejectsEmptyPlaintext();
-    KeygenSDKTests::testLocalDataProtectionRejectsEmptyProtectedData();
-    KeygenSDKTests::testLocalDataProtectionRejectsInvalidProtectedData();
-    KeygenSDKTests::testLocalDataProtectionDoesNotModifyOutputOnProtectFailure();
-    KeygenSDKTests::testLocalDataProtectionDoesNotModifyOutputOnUnprotectFailure();
+    RUN_TEST(KeygenSDKTests::testLocalDataProtectionRoundTrip);
+    RUN_TEST(KeygenSDKTests::testLocalDataProtectionRejectsEmptyPlaintext);
+    RUN_TEST(KeygenSDKTests::testLocalDataProtectionRejectsEmptyProtectedData);
+    RUN_TEST(KeygenSDKTests::testLocalDataProtectionRejectsInvalidProtectedData);
+    RUN_TEST(KeygenSDKTests::testLocalDataProtectionDoesNotModifyOutputOnProtectFailure);
+    RUN_TEST(KeygenSDKTests::testLocalDataProtectionDoesNotModifyOutputOnUnprotectFailure);
     
-    KeygenSDKTests::testMachineFileVerifier();
+    RUN_TEST(KeygenSDKTests::testMachineFileVerifier);
 
 #ifdef KEYGENSDK_TEST_C_API
-    KeygenSDKTests::testCApiCreateNullConfig();
-    KeygenSDKTests::testCApiCreateInvalidUtf8Path();
-    KeygenSDKTests::testCApiCreateChinesePath();
-    KeygenSDKTests::testCApiErrorCodeToString();
-    KeygenSDKTests::testCApiNullClientOperations();
-    KeygenSDKTests::testCApiMachineFingerprint();
-    KeygenSDKTests::testCApiExportMachineFileEmpty();
-    KeygenSDKTests::testCApiImportMachineFileWithoutState();
-    KeygenSDKTests::testCApiLicenseInfoEmpty();
+    RUN_TEST(KeygenSDKTests::testCApiCreateNullConfig);
+    RUN_TEST(KeygenSDKTests::testCApiCreateInvalidUtf8Path);
+    RUN_TEST(KeygenSDKTests::testCApiCreateChinesePath);
+    RUN_TEST(KeygenSDKTests::testCApiErrorCodeToString);
+    RUN_TEST(KeygenSDKTests::testCApiNullClientOperations);
+    RUN_TEST(KeygenSDKTests::testCApiMachineFingerprint);
+    RUN_TEST(KeygenSDKTests::testCApiExportMachineFileEmpty);
+    RUN_TEST(KeygenSDKTests::testCApiImportMachineFileWithoutState);
+    RUN_TEST(KeygenSDKTests::testCApiLicenseInfoEmpty);
 #endif
 
     return 0;
