@@ -85,19 +85,26 @@ namespace {
             return true;
         }
 
-#ifdef _WIN32
-        const int size = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, nullptr, 0);
-        if (size <= 0) {
-            return false;
-        }
+        #ifdef _WIN32
+            const int size = MultiByteToWideChar(
+                CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, nullptr, 0);
+            if (size <= 0) {
+                return false;
+            }
 
-        std::wstring wide(static_cast<std::size_t>(size - 1), L'\0');
-        MultiByteToWideChar(CP_UTF8, 0, utf8, -1, wide.data(), size);
-        out = std::filesystem::path(std::move(wide));
-#else
-        out = std::filesystem::path(utf8);
-#endif
-        return true;
+            std::wstring wide(static_cast<std::size_t>(size), L'\0');
+            const int converted = MultiByteToWideChar(
+                CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, wide.data(), size);
+            if (converted != size) {
+                return false;
+            }
+
+            wide.resize(static_cast<std::size_t>(size - 1));
+            out = std::filesystem::path(std::move(wide));
+        #else
+            out = std::filesystem::path(utf8);
+        #endif
+            return true;
     }
 
     template <typename Fn>
